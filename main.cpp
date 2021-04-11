@@ -20,12 +20,16 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 	int y = y0;
 	int dy = y1-y0;
 	int dx = x1-x0;
-	float slope = std::abs(dy/(float)dx); // rise/run.
-	float error = 0; // quantifies distance between y and the closest point on the straight line.
+	// We can do this without floats - we're working with pixels, which have int coordinates.
+	// Floating point arithmetic is slower (?) so we should avoid these if we can. 
+	int dy2 = std::abs(dy)*2; 
+	int yerror = 0;
 	for (int x=x0; x<x1; x++){
-		if(std::abs(error+=slope)> .5){
-			error-=1.;
-			y += (y1 > y0 ? 1 : -1); //
+		// yerror =k*dy for integer k. If k*dy>0.5dx, i.e., k*(dy/dx)>0.5 or k*2dy > dx,
+		// then inc y and 'mod' the error
+		if((yerror+=dy2) > dx){
+			yerror-=2*dx;
+			y += (y1 > y0 ? 1 : -1);
 		}
 		steep ? image.set(y,x,color) : image.set(x,y,color);
 	}
