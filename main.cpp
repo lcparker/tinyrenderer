@@ -1,3 +1,4 @@
+#include <iostream>
 #include <vector>
 #include <cmath>
 #include "tgaimage.h"
@@ -7,9 +8,10 @@
 
 const TGAColor white = TGAColor(255, 255, 255, 255);
 const TGAColor red   = TGAColor(255, 0,   0,   255);
+const TGAColor green   = TGAColor(0, 255,   0,  255);
 Model *model = NULL;
-const int width  = 800;
-const int height = 800;
+const int width  = 180;
+const int height = 180;
 
 void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 /* Draw a line by coloring the pixels between two points. */
@@ -42,24 +44,36 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 	}
 }
 
-void triangle(int x0, int y0, int x1, int y1, int x2, int y2, TGAImage &image, TGAColor color) {
-	// draw a triangle
-	line(x0,y0,x1,y1,image,color);
-	line(x1,y1,x2,y2,image,color);
-	line(x0,y0,x2,y2,image,color);
+void triangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
+	// draw a solid triangle
+
+	if (v1.x < v0.x) std::swap(v0,v1);
+	if (v2.x < v0.x) std::swap(v0,v2); 
+	if (v2.x < v1.x) std::swap(v1,v2); 
+
+	int ya = v0.y;
+	int yb = v0.y;
+	for(int x = v0.x; x<v1.x;x++){
+		float t = (x-v0.x)/(float)(v2.x-v0.x);
+		float s  = (x-v0.x)/(float)(v1.x-v0.x);
+		ya = (1.-t)*v0.y + t*(v2.y);		
+		yb = (1.-s)*v0.y + s*(v1.y);
+		line(x,ya,x,yb,image,color);
+	}
+	for(int x = v2.x;x>=v1.x;x--){
+		float t = (v2.x-x)/(float)(v2.x-v0.x);
+		float s = (v2.x-x)/(float)(v2.x-v1.x);
+		ya = (1.-s)*v2.y + s*v1.y;		
+		yb = (1.-t)*v2.y + t*v0.y;
+		line(x,ya,x,yb,image,color);
+	}
 }
 
-int main(int argc, char** argv) {
-	if(argc==2){
-		model = new Model(argv[1]);
-	} else{
-		model = new Model("obj/african_head.obj");
-	}
-
-	TGAImage image(width, height, TGAImage::RGB);
-	// (copied) code to draw all the lines in the model
+void drawfacemesh(const char *filename, TGAImage &image){
+// draw a face mesh in image according to model. (code copied)
+	model = new Model(filename);
 	for(int i=0; i<model->nfaces();i++){
-		std::vector<int> face = model->face(i); //vector representing a given triangle
+		std::vector<int> face = model->face(i);
 		for (int j=0; j<3; j++){
 			Vec3f v0 = model->vert(face[j]); 
 			Vec3f v1 = model->vert(face[(j+1)%3]); 
@@ -70,9 +84,39 @@ int main(int argc, char** argv) {
 			line(x0, y0, x1, y1, image, white); 
 		}
 	}
-	
+	delete model;
+}
+
+int main(int argc, char** argv) {
+	const char *filename;
+	// the filename for the obj can optionally be passed as arg
+
+	TGAImage image(width, height, TGAImage::RGB);
+
+	if(argc==2){
+		filename = argv[1];
+	} else{
+		filename = "obj/african_head.obj";
+	}
+
+	// drawfacemesh(filename, image); // Draw a facemesh
+
+	Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)}; 
+	Vec2i t1[3] = {Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180)}; 
+	Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)}; 
+	triangle(t0[0], t0[1], t0[2], image, red); 
+	line(t0[0].x,t0[0].y,t0[1].x,t0[1].y,image,white);
+	line(t0[0].x,t0[0].y,t0[2].x,t0[2].y,image,white);
+	line(t0[2].x,t0[2].y,t0[1].x,t0[1].y,image,white);
+	triangle(t1[0], t1[1], t1[2], image, white); 
+	line(t1[0].x,t1[0].y,t1[1].x,t1[1].y,image,white);
+	line(t1[0].x,t1[0].y,t1[2].x,t1[2].y,image,white);
+	line(t1[2].x,t1[2].y,t1[1].x,t1[1].y,image,white);
+	triangle(t2[0], t2[1], t2[2], image, green);
+	line(t2[0].x,t2[0].y,t2[1].x,t2[1].y,image,white);
+	line(t2[0].x,t2[0].y,t2[2].x,t2[2].y,image,white);
+	line(t0[2].x,t0[2].y,t0[1].x,t0[1].y,image,white);
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
-	delete model;
 	return 0;
 }
