@@ -1,0 +1,267 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 41.99      1.57     1.57 389900778     0.00     0.00  TGAImage::set(int, int, TGAColor)
+ 26.74      2.57     1.00   150000     0.01     0.02  triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor)
+ 25.27      3.52     0.95 390050787     0.00     0.00  TGAColor::TGAColor(TGAColor const&)
+  5.35      3.72     0.20                             TGAImage::get(int, int)
+  0.40      3.73     0.02        3     5.00     5.00  TGAColor::TGAColor(unsigned char, unsigned char, unsigned char, unsigned char)
+  0.27      3.74     0.01  3900020     0.00     0.00  std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<int> >, std::is_move_constructible<int>, std::is_move_assignable<int> >::value, void>::type std::swap<int>(int&, int&)
+  0.00      3.74     0.00 11700060     0.00     0.00  std::remove_reference<int&>::type&& std::move<int&>(int&)
+  0.00      3.74     0.00   750000     0.00     0.00  std::remove_reference<Vec2<int>&>::type&& std::move<Vec2<int>&>(Vec2<int>&)
+  0.00      3.74     0.00   250000     0.00     0.00  std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<Vec2<int> > >, std::is_move_constructible<Vec2<int> >, std::is_move_assignable<Vec2<int> > >::value, void>::type std::swap<Vec2<int> >(Vec2<int>&, Vec2<int>&)
+  0.00      3.74     0.00        9     0.00     0.00  line(int, int, int, int, TGAImage&, TGAColor)
+  0.00      3.74     0.00        9     0.00     0.00  Vec2<int>::Vec2(int, int)
+  0.00      3.74     0.00        1     0.00     0.00  _GLOBAL__sub_I__ZN5ModelC2EPKc
+  0.00      3.74     0.00        1     0.00     0.00  _GLOBAL__sub_I__ZN8TGAImageC2Ev
+  0.00      3.74     0.00        1     0.00    15.00  _GLOBAL__sub_I_model
+  0.00      3.74     0.00        1     0.00    15.00  __static_initialization_and_destruction_0(int, int)
+  0.00      3.74     0.00        1     0.00     0.00  __static_initialization_and_destruction_0(int, int)
+  0.00      3.74     0.00        1     0.00     0.00  __static_initialization_and_destruction_0(int, int)
+  0.00      3.74     0.00        1     0.00     0.00  TGAImage::write_tga_file(char const*, bool)
+  0.00      3.74     0.00        1     0.00     0.00  TGAImage::flip_vertically()
+  0.00      3.74     0.00        1     0.00     0.00  TGAImage::unload_rle_data(std::basic_ofstream<char, std::char_traits<char> >&)
+  0.00      3.74     0.00        1     0.00     0.00  TGAImage::TGAImage(int, int, int)
+  0.00      3.74     0.00        1     0.00     0.00  TGAImage::~TGAImage()
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.27% of 3.74 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     94.3    0.00    3.53                 main [1]
+                1.00    2.53  150000/150000      triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor) [2]
+                0.00    0.00  150009/390050787     TGAColor::TGAColor(TGAColor const&) [4]
+                0.00    0.00       9/9           line(int, int, int, int, TGAImage&, TGAColor) [11]
+                0.00    0.00       9/9           Vec2<int>::Vec2(int, int) [21]
+                0.00    0.00       1/1           TGAImage::TGAImage(int, int, int) [29]
+                0.00    0.00       1/1           TGAImage::flip_vertically() [27]
+                0.00    0.00       1/1           TGAImage::write_tga_file(char const*, bool) [26]
+                0.00    0.00       1/1           TGAImage::~TGAImage() [30]
+-----------------------------------------------
+                1.00    2.53  150000/150000      main [1]
+[2]     94.2    1.00    2.53  150000         triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor) [2]
+                1.57    0.00 389900000/389900778     TGAImage::set(int, int, TGAColor) [3]
+                0.94    0.00 389900000/390050787     TGAColor::TGAColor(TGAColor const&) [4]
+                0.01    0.00 3900000/3900020     std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<int> >, std::is_move_constructible<int>, std::is_move_assignable<int> >::value, void>::type std::swap<int>(int&, int&) [10]
+                0.00    0.00  250000/250000      std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<Vec2<int> > >, std::is_move_constructible<Vec2<int> >, std::is_move_assignable<Vec2<int> > >::value, void>::type std::swap<Vec2<int> >(Vec2<int>&, Vec2<int>&) [20]
+-----------------------------------------------
+                0.00    0.00     778/389900778     line(int, int, int, int, TGAImage&, TGAColor) [11]
+                1.57    0.00 389900000/389900778     triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor) [2]
+[3]     42.0    1.57    0.00 389900778         TGAImage::set(int, int, TGAColor) [3]
+-----------------------------------------------
+                0.00    0.00     778/390050787     line(int, int, int, int, TGAImage&, TGAColor) [11]
+                0.00    0.00  150009/390050787     main [1]
+                0.94    0.00 389900000/390050787     triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor) [2]
+[4]     25.3    0.95    0.00 390050787         TGAColor::TGAColor(TGAColor const&) [4]
+-----------------------------------------------
+                                                 <spontaneous>
+[5]      5.3    0.20    0.00                 TGAImage::get(int, int) [5]
+-----------------------------------------------
+                0.02    0.00       3/3           __static_initialization_and_destruction_0(int, int) [8]
+[6]      0.4    0.02    0.00       3         TGAColor::TGAColor(unsigned char, unsigned char, unsigned char, unsigned char) [6]
+-----------------------------------------------
+                0.00    0.02       1/1           __libc_csu_init [9]
+[7]      0.4    0.00    0.02       1         _GLOBAL__sub_I_model [7]
+                0.00    0.02       1/1           __static_initialization_and_destruction_0(int, int) [8]
+-----------------------------------------------
+                0.00    0.02       1/1           _GLOBAL__sub_I_model [7]
+[8]      0.4    0.00    0.02       1         __static_initialization_and_destruction_0(int, int) [8]
+                0.02    0.00       3/3           TGAColor::TGAColor(unsigned char, unsigned char, unsigned char, unsigned char) [6]
+-----------------------------------------------
+                                                 <spontaneous>
+[9]      0.4    0.00    0.02                 __libc_csu_init [9]
+                0.00    0.02       1/1           _GLOBAL__sub_I_model [7]
+                0.00    0.00       1/1           _GLOBAL__sub_I__ZN8TGAImageC2Ev [23]
+                0.00    0.00       1/1           _GLOBAL__sub_I__ZN5ModelC2EPKc [22]
+-----------------------------------------------
+                0.00    0.00      20/3900020     line(int, int, int, int, TGAImage&, TGAColor) [11]
+                0.01    0.00 3900000/3900020     triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor) [2]
+[10]     0.3    0.01    0.00 3900020         std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<int> >, std::is_move_constructible<int>, std::is_move_assignable<int> >::value, void>::type std::swap<int>(int&, int&) [10]
+                0.00    0.00 11700060/11700060     std::remove_reference<int&>::type&& std::move<int&>(int&) [18]
+-----------------------------------------------
+                0.00    0.00       9/9           main [1]
+[11]     0.0    0.00    0.00       9         line(int, int, int, int, TGAImage&, TGAColor) [11]
+                0.00    0.00     778/389900778     TGAImage::set(int, int, TGAColor) [3]
+                0.00    0.00     778/390050787     TGAColor::TGAColor(TGAColor const&) [4]
+                0.00    0.00      20/3900020     std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<int> >, std::is_move_constructible<int>, std::is_move_assignable<int> >::value, void>::type std::swap<int>(int&, int&) [10]
+-----------------------------------------------
+                0.00    0.00 11700060/11700060     std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<int> >, std::is_move_constructible<int>, std::is_move_assignable<int> >::value, void>::type std::swap<int>(int&, int&) [10]
+[18]     0.0    0.00    0.00 11700060         std::remove_reference<int&>::type&& std::move<int&>(int&) [18]
+-----------------------------------------------
+                0.00    0.00  750000/750000      std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<Vec2<int> > >, std::is_move_constructible<Vec2<int> >, std::is_move_assignable<Vec2<int> > >::value, void>::type std::swap<Vec2<int> >(Vec2<int>&, Vec2<int>&) [20]
+[19]     0.0    0.00    0.00  750000         std::remove_reference<Vec2<int>&>::type&& std::move<Vec2<int>&>(Vec2<int>&) [19]
+-----------------------------------------------
+                0.00    0.00  250000/250000      triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor) [2]
+[20]     0.0    0.00    0.00  250000         std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<Vec2<int> > >, std::is_move_constructible<Vec2<int> >, std::is_move_assignable<Vec2<int> > >::value, void>::type std::swap<Vec2<int> >(Vec2<int>&, Vec2<int>&) [20]
+                0.00    0.00  750000/750000      std::remove_reference<Vec2<int>&>::type&& std::move<Vec2<int>&>(Vec2<int>&) [19]
+-----------------------------------------------
+                0.00    0.00       9/9           main [1]
+[21]     0.0    0.00    0.00       9         Vec2<int>::Vec2(int, int) [21]
+-----------------------------------------------
+                0.00    0.00       1/1           __libc_csu_init [9]
+[22]     0.0    0.00    0.00       1         _GLOBAL__sub_I__ZN5ModelC2EPKc [22]
+                0.00    0.00       1/1           __static_initialization_and_destruction_0(int, int) [24]
+-----------------------------------------------
+                0.00    0.00       1/1           __libc_csu_init [9]
+[23]     0.0    0.00    0.00       1         _GLOBAL__sub_I__ZN8TGAImageC2Ev [23]
+                0.00    0.00       1/1           __static_initialization_and_destruction_0(int, int) [25]
+-----------------------------------------------
+                0.00    0.00       1/1           _GLOBAL__sub_I__ZN5ModelC2EPKc [22]
+[24]     0.0    0.00    0.00       1         __static_initialization_and_destruction_0(int, int) [24]
+-----------------------------------------------
+                0.00    0.00       1/1           _GLOBAL__sub_I__ZN8TGAImageC2Ev [23]
+[25]     0.0    0.00    0.00       1         __static_initialization_and_destruction_0(int, int) [25]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[26]     0.0    0.00    0.00       1         TGAImage::write_tga_file(char const*, bool) [26]
+                0.00    0.00       1/1           TGAImage::unload_rle_data(std::basic_ofstream<char, std::char_traits<char> >&) [28]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[27]     0.0    0.00    0.00       1         TGAImage::flip_vertically() [27]
+-----------------------------------------------
+                0.00    0.00       1/1           TGAImage::write_tga_file(char const*, bool) [26]
+[28]     0.0    0.00    0.00       1         TGAImage::unload_rle_data(std::basic_ofstream<char, std::char_traits<char> >&) [28]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[29]     0.0    0.00    0.00       1         TGAImage::TGAImage(int, int, int) [29]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[30]     0.0    0.00    0.00       1         TGAImage::~TGAImage() [30]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+  [22] _GLOBAL__sub_I__ZN5ModelC2EPKc (model.cpp) [21] Vec2<int>::Vec2(int, int) [29] TGAImage::TGAImage(int, int, int)
+  [23] _GLOBAL__sub_I__ZN8TGAImageC2Ev (tgaimage.cpp) [4] TGAColor::TGAColor(TGAColor const&) [30] TGAImage::~TGAImage()
+   [7] _GLOBAL__sub_I_model (main.cpp) [6] TGAColor::TGAColor(unsigned char, unsigned char, unsigned char, unsigned char) [19] std::remove_reference<Vec2<int>&>::type&& std::move<Vec2<int>&>(Vec2<int>&)
+   [8] __static_initialization_and_destruction_0(int, int) (main.cpp) [26] TGAImage::write_tga_file(char const*, bool) [18] std::remove_reference<int&>::type&& std::move<int&>(int&)
+  [24] __static_initialization_and_destruction_0(int, int) (model.cpp) [27] TGAImage::flip_vertically() [20] std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<Vec2<int> > >, std::is_move_constructible<Vec2<int> >, std::is_move_assignable<Vec2<int> > >::value, void>::type std::swap<Vec2<int> >(Vec2<int>&, Vec2<int>&)
+  [25] __static_initialization_and_destruction_0(int, int) (tgaimage.cpp) [28] TGAImage::unload_rle_data(std::basic_ofstream<char, std::char_traits<char> >&) [10] std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<int> >, std::is_move_constructible<int>, std::is_move_assignable<int> >::value, void>::type std::swap<int>(int&, int&)
+  [11] line(int, int, int, int, TGAImage&, TGAColor) [5] TGAImage::get(int, int)
+   [2] triangle(Vec2<int>, Vec2<int>, Vec2<int>, TGAImage&, TGAColor) [3] TGAImage::set(int, int, TGAColor)

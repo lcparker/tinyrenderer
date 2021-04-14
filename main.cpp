@@ -45,27 +45,36 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 }
 
 void triangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
-	// draw a solid triangle
+	// Draw a solid triangle.
 
+	// About a 25% speedup by calling image.set() directly instead
+	// of using line.
 	if (v1.x < v0.x) std::swap(v0,v1);
 	if (v2.x < v0.x) std::swap(v0,v2); 
 	if (v2.x < v1.x) std::swap(v1,v2); 
 
 	int ya = v0.y;
 	int yb = v0.y;
+
 	for(int x = v0.x; x<v1.x;x++){
 		float t = (x-v0.x)/(float)(v2.x-v0.x);
 		float s  = (x-v0.x)/(float)(v1.x-v0.x);
 		ya = (1.-t)*v0.y + t*(v2.y);		
 		yb = (1.-s)*v0.y + s*(v1.y);
-		line(x,ya,x,yb,image,color);
+		if(ya < yb) std::swap(ya,yb);	
+		for(int y=yb;y<ya;y++){
+		   	image.set(x,y,color);
+		}
 	}
 	for(int x = v2.x;x>=v1.x;x--){
 		float t = (v2.x-x)/(float)(v2.x-v0.x);
 		float s = (v2.x-x)/(float)(v2.x-v1.x);
 		ya = (1.-s)*v2.y + s*v1.y;		
 		yb = (1.-t)*v2.y + t*v0.y;
-		line(x,ya,x,yb,image,color);
+		if(ya < yb) std::swap(ya,yb);	
+		for(int y=yb;y<ya;y++){
+		   	image.set(x,y,color);
+		}
 	}
 }
 
@@ -104,18 +113,20 @@ int main(int argc, char** argv) {
 	Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)}; 
 	Vec2i t1[3] = {Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180)}; 
 	Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)}; 
-	triangle(t0[0], t0[1], t0[2], image, red); 
 	line(t0[0].x,t0[0].y,t0[1].x,t0[1].y,image,white);
 	line(t0[0].x,t0[0].y,t0[2].x,t0[2].y,image,white);
 	line(t0[2].x,t0[2].y,t0[1].x,t0[1].y,image,white);
-	triangle(t1[0], t1[1], t1[2], image, white); 
 	line(t1[0].x,t1[0].y,t1[1].x,t1[1].y,image,white);
 	line(t1[0].x,t1[0].y,t1[2].x,t1[2].y,image,white);
 	line(t1[2].x,t1[2].y,t1[1].x,t1[1].y,image,white);
-	triangle(t2[0], t2[1], t2[2], image, green);
 	line(t2[0].x,t2[0].y,t2[1].x,t2[1].y,image,white);
 	line(t2[0].x,t2[0].y,t2[2].x,t2[2].y,image,white);
 	line(t0[2].x,t0[2].y,t0[1].x,t0[1].y,image,white);
+	for (int i=0; i<50000; i++){
+		triangle(t0[0], t0[1], t0[2], image, red); 
+		triangle(t1[0], t1[1], t1[2], image, white); 
+		triangle(t2[0], t2[1], t2[2], image, green);
+	}
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
 	return 0;
