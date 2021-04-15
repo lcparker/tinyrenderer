@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <cmath>
 #include "tgaimage.h"
 #include "geometry.h"
@@ -10,8 +11,8 @@ const TGAColor white = TGAColor(255, 255, 255, 255);
 const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green   = TGAColor(0, 255,   0,  255);
 Model *model = NULL;
-const int width  = 180;
-const int height = 180;
+const int width  = 1000;
+const int height = 1000;
 
 void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 /* Draw a line by coloring the pixels between two points. */
@@ -44,33 +45,70 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 	}
 }
 
-void triangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
-	// Draw a solid triangle.
+Vec3f barycentric(Vec2i *pts, Vec2i P){
+	Vec3f xs(pts[2].x-pts[0].x, pts[1].x-pts[0].x,pts[0].x-P.x);
+	Vec3f ys(pts[2].y-pts[0].y, pts[1].y-pts[0].y,pts[0].y-P.y);
+	Vec3f u = xs ^ ys;
+	
+	if(std::abs(u.z) <1) return Vec3f(-1,1,1); // triangle is "degenerate", just return negative
+	return Vec3f(u.x/u.z,u.y/u.z,1.-(u.x+u.y)/u.z);
+}
+
+void triangle_bary(Vec2i *v, TGAImage &image, TGAColor color) {
+	/* Using barycentric coordinates to draw the triangle, which
+	 * allows us to exploit parallelisation, even though on a 
+	 * single thread it will take longer. 
+	 */
+
+	// Upper left and lower right point of triangle	bounding box
+
+	// whether these are int or float doesn't seem to affect performance.
+	Vec2i ur = Vec2i(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y}));
+	Vec2i ll = Vec2i(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y}));
+
+	for (int x = ll.x; x<=ur.x;x++){
+		for (int y = ll.y; y<=ur.y;y++){
+			Vec3f comps  = barycentric(v,Vec2i(x,y));
+			// neat trick: if cancels as soon as it can verify truth,
+			// so it'll be faster to use || than &&
+			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
+		   	image.set(x,y,color);
+		}
+	}
+}
+
+void triangle_mono(Vec2i *v, TGAImage &image, TGAColor color) {
+	// Draw a solid triangle. Uses an algorithm that's more suited
+	// to single-thread processors.
 
 	// About a 25% speedup by calling image.set() directly instead
 	// of using line.
-	if (v1.x < v0.x) std::swap(v0,v1);
-	if (v2.x < v0.x) std::swap(v0,v2); 
-	if (v2.x < v1.x) std::swap(v1,v2); 
+	if (v[1].x < v[0].x) std::swap(v[0],v[1]);
+	if (v[2].x < v[0].x) std::swap(v[0],v[2]); 
+	if (v[2].x < v[1].x) std::swap(v[1],v[2]); 
 
-	int ya = v0.y;
-	int yb = v0.y;
+	int ya;
+	int yb;
+	
+	std::cout << "drawing" << std::endl;
 
-	for(int x = v0.x; x<v1.x;x++){
-		float t = (x-v0.x)/(float)(v2.x-v0.x);
-		float s  = (x-v0.x)/(float)(v1.x-v0.x);
-		ya = (1.-t)*v0.y + t*(v2.y);		
-		yb = (1.-s)*v0.y + s*(v1.y);
+	for(int x = v[0].x; x<v[1].x;x++){
+		float t = (x-v[0].x)/(float)(v[2].x-v[0].x);
+		float s  = (x-v[0].x)/(float)(v[1].x-v[0].x);
+		ya = (1.-t)*v[0].y + t*(v[2].y);		
+		yb = (1.-s)*v[0].y + s*(v[1].y);
+		std::cout << "x = " << x << std::endl;
 		if(ya < yb) std::swap(ya,yb);	
 		for(int y=yb;y<ya;y++){
 		   	image.set(x,y,color);
 		}
 	}
-	for(int x = v2.x;x>=v1.x;x--){
-		float t = (v2.x-x)/(float)(v2.x-v0.x);
-		float s = (v2.x-x)/(float)(v2.x-v1.x);
-		ya = (1.-s)*v2.y + s*v1.y;		
-		yb = (1.-t)*v2.y + t*v0.y;
+	for(int x = v[2].x;x>=v[1].x;x--){
+		float t = (v[2].x-x)/(float)(v[2].x-v[0].x);
+		float s = (v[2].x-x)/(float)(v[2].x-v[1].x);
+		ya = (1.-s)*v[2].y + s*v[1].y;		
+		yb = (1.-t)*v[2].y + t*v[0].y;
+		std::cout << "x = " << x << std::endl;
 		if(ya < yb) std::swap(ya,yb);	
 		for(int y=yb;y<ya;y++){
 		   	image.set(x,y,color);
@@ -79,18 +117,24 @@ void triangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
 }
 
 void drawfacemesh(const char *filename, TGAImage &image){
-// draw a face mesh in image according to model. (code copied)
 	model = new Model(filename);
 	for(int i=0; i<model->nfaces();i++){
 		std::vector<int> face = model->face(i);
+		Vec2i pts[3];
+		Vec3f obj_coords[3]; // the coords as given in the obj file
 		for (int j=0; j<3; j++){
-			Vec3f v0 = model->vert(face[j]); 
-			Vec3f v1 = model->vert(face[(j+1)%3]); 
-			int x0 = (v0.x+1.)*width/2.;
-			int y0 = (v0.y+1.)*height/2.; 
-			int x1 = (v1.x+1.)*width/2.; 
-			int y1 = (v1.y+1.)*height/2.; 
-			line(x0, y0, x1, y1, image, white); 
+			Vec3f v = model->vert(face[j]); 
+			// obj file stores as "v a b c" where -1<= a,b,c<=1,
+			// so need to rescale
+			pts[j] = Vec2i((v.x+1.)*width/2.,(v.y+1.)*height/2.);
+			obj_coords[j] = v;
+		}	
+		Vec3f normal = (obj_coords[2]-obj_coords[0])^(obj_coords[1]-obj_coords[0]);
+		normal.normalize();
+		Vec3f light_dirn = Vec3f(0,0,-1); // light goes in the -z dir'n
+		float brightness = normal*light_dirn;
+		if (brightness > 0){
+			triangle_bary(pts,image,TGAColor(brightness*255,brightness*255,brightness*255,255));
 		}
 	}
 	delete model;
@@ -108,26 +152,24 @@ int main(int argc, char** argv) {
 		filename = "obj/african_head.obj";
 	}
 
-	// drawfacemesh(filename, image); // Draw a facemesh
+	drawfacemesh(filename, image); // Draw a facemesh
 
+	/*
 	Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)}; 
 	Vec2i t1[3] = {Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180)}; 
 	Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)}; 
-	line(t0[0].x,t0[0].y,t0[1].x,t0[1].y,image,white);
-	line(t0[0].x,t0[0].y,t0[2].x,t0[2].y,image,white);
-	line(t0[2].x,t0[2].y,t0[1].x,t0[1].y,image,white);
-	line(t1[0].x,t1[0].y,t1[1].x,t1[1].y,image,white);
-	line(t1[0].x,t1[0].y,t1[2].x,t1[2].y,image,white);
-	line(t1[2].x,t1[2].y,t1[1].x,t1[1].y,image,white);
-	line(t2[0].x,t2[0].y,t2[1].x,t2[1].y,image,white);
-	line(t2[0].x,t2[0].y,t2[2].x,t2[2].y,image,white);
-	line(t0[2].x,t0[2].y,t0[1].x,t0[1].y,image,white);
-	for (int i=0; i<50000; i++){
-		triangle(t0[0], t0[1], t0[2], image, red); 
-		triangle(t1[0], t1[1], t1[2], image, white); 
-		triangle(t2[0], t2[1], t2[2], image, green);
-	}
+	triangle_bary(t0, image, red); 
+	triangle_bary(t1, image, white); 
+	triangle_bary(t2, image, green);
+	
+	// this gives reasonable answers
+	Vec3f b = barycentric(t0, Vec2i(20,90));
+
+	std::cout << b << std::endl;
+
+	*/
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
 	return 0;
 }
+
