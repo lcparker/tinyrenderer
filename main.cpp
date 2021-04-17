@@ -10,36 +10,35 @@
 const TGAColor white = TGAColor(255, 255, 255, 255);
 const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green   = TGAColor(0, 255,   0,  255);
+const TGAColor blue   = TGAColor(0, 0,   255,  255);
 Model *model = NULL;
-const int width  = 1000;
-const int height = 1000;
+const int width  = 800;
+const int height = 500;
 
-void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
+void line(Vec2i v0, Vec2i v1, TGAImage &image, TGAColor color) {
 /* Draw a line by coloring the pixels between two points. */
 	bool steep = false;
-	if(std::abs(x0-x1) < std::abs(y0-y1)){
-		std::swap(x0,y0);
-		std::swap(x1,y1);
+	if(std::abs(v0.x-v1.x) < std::abs(v0.y-v1.y)){
+		std::swap(v0.x,v0.y);
+		std::swap(v1.x,v1.y);
 		steep = true; }
-   	if(x1 < x0){ std::swap(x0,x1);
-		std::swap(y0,y1);
-	}
+   	if(v1.x < v0.x) std::swap(v0,v1);
 
 	// For speed, take as much stuff outside the loop as possible
 	// Minimise number of operations
-	int y = y0;
-	int dy = y1-y0;
-	int dx = x1-x0;
+	int y = v0.y;
+	int dy = v1.y-v0.y;
+	int dx = v1.x-v0.x;
 	// We can do this without floats - we're working with pixels, which have int coordinates.
 	// Floating point arithmetic is slower (?) so we should avoid these if we can. 
 	int dy2 = std::abs(dy)*2; 
 	int yerror = 0;
-	for (int x=x0; x<x1; x++){
+	for (int x=v0.x; x<v1.x; x++){
 		// yerror =k*dy for integer k. If k*dy>0.5dx, i.e., k*(dy/dx)>0.5 or k*2dy > dx,
 		// then inc y and 'mod' the error
 		if((yerror+=dy2) > dx){
 			yerror-=2*dx;
-			y += (y1 > y0 ? 1 : -1);
+			y += (v1.y > v0.y ? 1 : -1);
 		}
 		steep ? image.set(y,x,color) : image.set(x,y,color);
 	}
@@ -52,6 +51,22 @@ Vec3f barycentric(Vec2i *pts, Vec2i P){
 	
 	if(std::abs(u.z) <1) return Vec3f(-1,1,1); // triangle is "degenerate", just return negative
 	return Vec3f(u.x/u.z,u.y/u.z,1.-(u.x+u.y)/u.z);
+}
+
+void rasterize(Vec2i v0, Vec2i v1, int ybuffer[width], TGAImage &image, TGAColor color){
+	// Draw a line, but only if it's closer to the camera than what's already
+	// been drawn.
+	if(v1.x < v0.x) std::swap(v0,v1);
+
+	float t;
+	for(int x = v0.x; x<v1.x;x++){
+		t = (x-v0.x)/(float)(v1.x-v0.x);
+		int y = (1.-t)*v0.y + t*v1.y;
+		if (y > ybuffer[x]){
+			ybuffer[x] = y;
+			for(int i=0;i<30;i++) image.set(x,i,color);
+		}
+	}
 }
 
 void triangle_bary(Vec2i *v, TGAImage &image, TGAColor color) {
@@ -141,33 +156,17 @@ void drawfacemesh(const char *filename, TGAImage &image){
 }
 
 int main(int argc, char** argv) {
+	
 	const char *filename;
-	// the filename for the obj can optionally be passed as arg
 
 	TGAImage image(width, height, TGAImage::RGB);
+	filename = "obj/african_head.obj";
+	// drawfacemesh(filename, image); // Draw a facemesh
 
-	if(argc==2){
-		filename = argv[1];
-	} else{
-		filename = "obj/african_head.obj";
-	}
-
-	drawfacemesh(filename, image); // Draw a facemesh
-
-	/*
-	Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)}; 
-	Vec2i t1[3] = {Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180)}; 
-	Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)}; 
-	triangle_bary(t0, image, red); 
-	triangle_bary(t1, image, white); 
-	triangle_bary(t2, image, green);
-	
-	// this gives reasonable answers
-	Vec3f b = barycentric(t0, Vec2i(20,90));
-
-	std::cout << b << std::endl;
-
-	*/
+	int ybuffer[width] = {0};
+	rasterize(Vec2i(20, 34), Vec2i(744, 400), ybuffer, image, red);
+	rasterize(Vec2i(120, 434), Vec2i(444, 400), ybuffer, image, green);
+	rasterize(Vec2i(330, 463), Vec2i(594, 200), ybuffer, image, blue);
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
 	return 0;
