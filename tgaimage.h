@@ -57,6 +57,14 @@ struct TGAColor {
 		}
 		return *this;
 	}
+	
+	TGAColor & operator *(const float i) {
+		// not sure what val does, left it alone, might cause ERROR
+		b*=i;
+		g*=i;
+		r*=i;
+		return *this;
+	}
 };
 
 

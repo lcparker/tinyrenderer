@@ -5,7 +5,7 @@
 #include <vector>
 #include "model.h"
 
-Model::Model(const char *filename) : verts_(), faces_() {
+Model::Model(const char *filename) : verts_(), tverts_(), faces_() {
     std::ifstream in;
     in.open (filename, std::ifstream::in);
     if (in.fail()) return;
@@ -19,18 +19,30 @@ Model::Model(const char *filename) : verts_(), faces_() {
             Vec3f v;
             for (int i=0;i<3;i++) iss >> v.raw[i];
             verts_.push_back(v);
-        } else if (!line.compare(0, 2, "f ")) {
+        } else if (!line.compare(0,3, "vt ")) {
+            iss >> trash >> trash >> trash ;
+            Vec3f v;
+            for (int i=0;i<3;i++){
+				iss >> v.raw[i];
+			}
+            tverts_.push_back(v);
+		} else if (!line.compare(0, 2, "f ")) {
             std::vector<int> f;
-            int itrash, idx;
+            int idx1, idx2, idx3;
             iss >> trash;
-            while (iss >> idx >> trash >> itrash >> trash >> itrash) {
-                idx--; // in wavefront obj all indices start at 1, not zero
-                f.push_back(idx);
+			// while the lines parse like "int1/int2/int3" store int in idx;
+            while (iss >> idx1 >> trash >> idx2 >> trash >> idx3) {
+                idx1--; // in wavefront obj all indices start at 1, not zero
+                idx2--;
+                idx3--; 
+                f.push_back(idx1);
+                f.push_back(idx2);
+                f.push_back(idx3); // f should be vector of length 9
             }
             faces_.push_back(f);
-        }
+		}
     }
-    std::cerr << "# v# " << verts_.size() << " f# "  << faces_.size() << std::endl;
+    std::cerr << "# v# " << verts_.size() << "# vt " << tverts_.size() << " f# "  << faces_.size() << std::endl;
 }
 
 Model::~Model() {
@@ -52,3 +64,6 @@ Vec3f Model::vert(int i) {
     return verts_[i];
 }
 
+Vec3f Model::tvert(int i) {
+    return tverts_[i];
+}
