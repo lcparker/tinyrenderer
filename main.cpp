@@ -145,7 +145,7 @@ void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f light_dir, float zbuffer[width]
 }
 
 void drawfacemesh(const char *modelname, const char *texturename, TGAImage &image){
-
+	float c = 3.;
 	model = new Model(modelname); // face
 	TGAImage texture;
     texture.read_tga_file(texturename); // The image containing the texture map
@@ -164,6 +164,11 @@ void drawfacemesh(const char *modelname, const char *texturename, TGAImage &imag
 		Vec3f txts[3]; // the three texture coordinates.
 		for (int j=0; j<3; j++){
 			pts[j] = (model->vert(face[j*3]));
+			// change perspective:
+			float camscale = 1./(1.-pts[j].z/c);
+			pts[j].x *= camscale;
+			pts[j].y *= camscale;
+			pts[j].z *= camscale;
 			txts[j] = (model->tvert(face[(j*3)+1]));
 		}	
 		Vec3f light_dir = Vec3f(0,0,-1); // light goes in the -z dir'n
