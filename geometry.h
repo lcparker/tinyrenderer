@@ -1,7 +1,9 @@
 #ifndef __GEOMETRY_H__
 #define __GEOMETRY_H__
-
 #include <cmath>
+#include <vector>
+
+class Matrix;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -27,12 +29,15 @@ template <class t> struct Vec3 {
 	};
 	Vec3() : x(0), y(0), z(0) {}
 	Vec3(t _x, t _y, t _z) : x(_x),y(_y),z(_z) {}
+	Vec3(Matrix m);
+	template <class u> Vec3<t>(const Vec3<u> &v);
 	inline Vec3<t> operator ^(const Vec3<t> &v) const { return Vec3<t>(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x); }
 	inline Vec3<t> operator +(const Vec3<t> &v) const { return Vec3<t>(x+v.x, y+v.y, z+v.z); }
 	inline Vec3<t> operator -(const Vec3<t> &v) const { return Vec3<t>(x-v.x, y-v.y, z-v.z); }
 	inline Vec3<t> operator *(float f)          const { return Vec3<t>(x*f, y*f, z*f); }
 	inline t       operator *(const Vec3<t> &v) const { return x*v.x + y*v.y + z*v.z; }
 	float norm () const { return std::sqrt(x*x+y*y+z*z); }
+	t operator[](const int i) { return (t) raw[i]; }
 	Vec3<t> & normalize(t l=1) { *this = (*this)*(l/norm()); return *this; }
 	template <class > friend std::ostream& operator<<(std::ostream& s, Vec3<t>& v);
 };
@@ -51,5 +56,25 @@ template <class t> std::ostream& operator<<(std::ostream& s, Vec3<t>& v) {
 	s << "(" << v.x << ", " << v.y << ", " << v.z << ")\n";
 	return s;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// basically copied from ssloy/tinyrenderer
+
+class Matrix{
+	std::vector<std::vector<float>> m;
+	int rows, cols;
+public:
+	Matrix( int r = 4, int c = 4);
+	Matrix(Vec3f v);
+	int nrows();
+	int ncols();
+	static Matrix identity(int dimensions);
+	std::vector<float>& operator[](const int i);
+	Matrix operator*(const Matrix& a);
+	Matrix transpose();
+	Matrix inverse();
+	friend std::ostream& operator<<(std::ostream& s, Matrix& m);
+};
 
 #endif //__GEOMETRY_H__

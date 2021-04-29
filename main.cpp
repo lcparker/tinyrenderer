@@ -14,6 +14,9 @@ const TGAColor blue   = TGAColor(0, 0,   255,  255);
 Model *model = NULL;
 const int width  = 1000;
 const int height = 1000;
+Vec3f eye(1,1,4);
+Vec3f centre(0,0,0);
+Vec3f up(0,1,0);
 
 void line(Vec2i v0, Vec2i v1, TGAImage &image, TGAColor color) {
 /* Draw a line by coloring the pixels between two points. */
@@ -86,8 +89,8 @@ void triangle(Vec3f *v, float zbuffer[width][height], TGAImage &image, TGAColor 
 		std::cout << v[i] << std::endl;
 	}
 	*/
-	for (int x = (ll.x+1.) * width/2.; x<=(ur.x+1.)*width/2.;x++){
-		for (int y = (ll.y+1.)*height/2; y<=(ur.y+1.)*height/2.;y++){
+	for (int x = (ll.x+1.) * width/2.; x<=(ur.x+1.)*width/2. && x > 0 && x < width;x++){
+		for (int y = (ll.y+1.)*height/2; y<=(ur.y+1.)*height/2. && y > 0 && y < height;y++){
 			Vec2i pts[3] = {Vec2i((v[0].x+1.)*width/2,(v[0].y+1.)*height/2),
 			   Vec2i((v[1].x+1.)*width/2,(v[1].y+1.)*height/2),
 			   Vec2i((v[2].x+1.)*width/2,(v[2].y+1.)*height/2)};
@@ -102,11 +105,6 @@ void triangle(Vec3f *v, float zbuffer[width][height], TGAImage &image, TGAColor 
 	}
 }
 
-float brightness(Vec3f *v, Vec3f light_dirn){
-	Vec3f normal = (v[2]-v[0])^(v[1]-v[0]);
-	normal.normalize();
-	return normal*light_dirn;
-}
 
 TGAColor get_texture(Vec2i p, Vec3f *tv, Vec3f bary, TGAImage &texture){
 	int tw = texture.get_width();
@@ -119,60 +117,106 @@ TGAColor get_texture(Vec2i p, Vec3f *tv, Vec3f bary, TGAImage &texture){
 	return texture.get(tx,ty);
 }
 
-void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f light_dir, float zbuffer[width][height], TGAImage &image, TGAImage &texture) {
+void triangle_texture(Vec3f *v, Vec3f *tv, float intensity, int zbuffer[width][height], TGAImage &image, TGAImage &texture) {
 
 	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
 	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
 
-	for (int x = (ll.x+1.) * width/2.; x<=(ur.x+1.)*width/2.;x++){
-		for (int y = (ll.y+1.)*height/2; y<=(ur.y+1.)*height/2.;y++){
-			Vec2i pts[3] = {Vec2i((v[0].x+1.)*width/2,(v[0].y+1.)*height/2),
-			   				Vec2i((v[1].x+1.)*width/2,(v[1].y+1.)*height/2),
-			   				Vec2i((v[2].x+1.)*width/2,(v[2].y+1.)*height/2)};
+	// don't try to draw things that will be outside of the camera view
+	for (int x = ll.x; x<=ur.x && x < width;x++){
+		for (int y = ll.y; y<=ur.y && y < height;y++){
+			Vec2i pts[3] = {Vec2i(v[0].x,v[0].y),
+			   				Vec2i(v[1].x,v[1].y),
+			   				Vec2i(v[2].x,v[2].y)};
 			Vec3f comps  = barycentric(pts,Vec2i(x,y));
 			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
 			float z = (v[0].z)*comps.x + (v[1].z)*comps.y + (v[2].z)*comps.z;
-			if(zbuffer[x][y] < z){
-				zbuffer[x][y] = z;
-				float b = brightness(v, light_dir);
-				if(b > 0){
-					TGAColor color = get_texture(Vec2i(x,y), tv, comps, texture)*b;
-					image.set(x,y,color);
-				}
+			if(zbuffer[x][y] < (int) z){
+				zbuffer[x][y] = (int) z;
+				TGAColor color = get_texture(Vec2i(x,y), tv, comps, texture)*intensity;
+				image.set(x,y,color);
 			}
 		}
 	}
 }
 
+Matrix view_frame(Vec3f eye, Vec3f centre, Vec3f up){
+	/* Generates the matrix which transforms vectors from the object frame to the 
+	 * camera's frame */
+
+	Vec3f z = (eye-centre).normalize();
+	Vec3f x = (up^z).normalize();
+	Vec3f y = (z^x).normalize();
+	Matrix Minv  = Matrix::identity(4);
+	Matrix Trans = Matrix::identity(4);
+
+	for(int i = 0; i < 3; i++){
+		Minv[0][i]  = x[i];
+		Minv[1][i]  = y[i];
+		Minv[2][i]  = z[i];
+		Trans[i][3] = -centre[i];
+	}
+
+	return Minv*Trans;
+}
+
+Matrix perspective(Vec3f v){
+	/* generate the perspective-view distortion matrix for v */
+
+	Matrix result = Matrix::identity(4);	
+	Vec3f dist = eye-centre;
+	float c = dist.norm();
+	float camscale = 1./(1.-v.z/c);
+
+	result[0][0] = camscale;
+	result[1][1] = camscale;
+	result[2][2] = camscale;
+
+	return result;
+}
+
+Matrix viewport(int x, int y, int w, int h, int depth){
+
+	Matrix result = Matrix::identity(4);
+	result[0][0] = w/2;
+	result[1][1] = h/2;
+	result[2][2] = depth/2;
+	result[2][3] = depth/2;
+	result[0][3] = x + w/2;
+	result[1][3] = y + h/2;
+
+	return result;
+}
+
 void drawfacemesh(const char *modelname, const char *texturename, TGAImage &image){
-	float c = 3.;
+
 	model = new Model(modelname); // face
 	TGAImage texture;
     texture.read_tga_file(texturename); // The image containing the texture map
 	texture.flip_vertically();
 
-	float zbuffer[width][height];
-	for(int i=0;i<width;i++){
-		for(int j=0;j<height;j++){
-			zbuffer[i][j] = -2;
-		}
-	}
+	int zbuffer[width][height] = {0}; // z-buffer in greyscale
+
+	Matrix ModelView = view_frame(eye, centre, up);
+	Matrix ViewPort = viewport(0, 0, width, height, 255);
 
 	for(int i=0; i<model->nfaces();i++){
 		std::vector<int> face = model->face(i);
 		Vec3f pts[3];
+		Vec3f world_coords[3];
 		Vec3f txts[3]; // the three texture coordinates.
 		for (int j=0; j<3; j++){
-			pts[j] = (model->vert(face[j*3]));
-			// change perspective:
-			float camscale = 1./(1.-pts[j].z/c);
-			pts[j].x *= camscale;
-			pts[j].y *= camscale;
-			pts[j].z *= camscale;
+			Vec3f v = (model->vert(face[j*3]));
+			Matrix Projection = perspective(v);
+			pts[j] = Vec3f(ViewPort * Projection * ModelView * Matrix(v));
 			txts[j] = (model->tvert(face[(j*3)+1]));
+			world_coords[j] = v; // useless extra vector maybe... CHECK if this passes by reference or copy.
 		}	
 		Vec3f light_dir = Vec3f(0,0,-1); // light goes in the -z dir'n
-		triangle_texture(pts, txts, light_dir, zbuffer, image, texture);
+		Vec3f normal = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]);
+		normal.normalize();
+		float intensity = normal*light_dir;
+		if (intensity > 0)	triangle_texture(pts, txts, intensity, zbuffer, image, texture);
 	}
 
 	delete model;
