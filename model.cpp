@@ -5,7 +5,7 @@
 #include <vector>
 #include "model.h"
 
-Model::Model(const char *filename) : verts_(), tverts_(), faces_() {
+Model::Model(const char *filename) : verts_(), tverts_(), nverts_(), faces_() {
     std::ifstream in;
     in.open (filename, std::ifstream::in);
     if (in.fail()) return;
@@ -26,6 +26,13 @@ Model::Model(const char *filename) : verts_(), tverts_(), faces_() {
 				iss >> v.raw[i];
 			}
             tverts_.push_back(v);
+        } else if (!line.compare(0,3, "vn ")) {
+            iss >> trash >> trash >> trash ;
+            Vec3f v;
+            for (int i=0;i<3;i++){
+				iss >> v.raw[i];
+			}
+            nverts_.push_back(v);
 		} else if (!line.compare(0, 2, "f ")) {
             std::vector<int> f;
             int idx1, idx2, idx3;
@@ -60,10 +67,14 @@ std::vector<int> Model::face(int idx) {
     return faces_[idx];
 }
 
-Vec3f Model::vert(int i) {
+Vec3f Model::vert(int i) { // get ith vertex
     return verts_[i];
 }
 
-Vec3f Model::tvert(int i) {
+Vec3f Model::tvert(int i) { // get ith texture vertex
     return tverts_[i];
+}
+
+Vec3f Model::nvert(int i) { // get ith normal
+    return nverts_[i];
 }

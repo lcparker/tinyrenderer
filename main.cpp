@@ -17,6 +17,7 @@ const int height = 1000;
 Vec3f eye(1,1,4);
 Vec3f centre(0,0,0);
 Vec3f up(0,1,0);
+Vec3f light_dir = Vec3f(0,0,-1); // light goes in the -z dir'n
 
 void line(Vec2i v0, Vec2i v1, TGAImage &image, TGAColor color) {
 /* Draw a line by coloring the pixels between two points. */
@@ -72,40 +73,6 @@ Vec3f barycentric(Vec2i *pts, Vec2i P){
 	return Vec3f(u.x/u.z,u.y/u.z,1.-(u.x+u.y)/u.z);
 }
 
-void triangle(Vec3f *v, float zbuffer[width][height], TGAImage &image, TGAColor color) {
-	/* Using barycentric coordinates to draw the triangle, which
-	 * allows us to exploit parallelisation, even though on a 
-	 * single thread it will take longer. 
-	 */
-
-	// Upper left and lower right point of triangle	bounding box
-
-	// whether these are int or float doesn't seem to affect performance.
-	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
-	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
-
-	/*
-	for(int i=0;i<3;i++){
-		std::cout << v[i] << std::endl;
-	}
-	*/
-	for (int x = (ll.x+1.) * width/2.; x<=(ur.x+1.)*width/2. && x > 0 && x < width;x++){
-		for (int y = (ll.y+1.)*height/2; y<=(ur.y+1.)*height/2. && y > 0 && y < height;y++){
-			Vec2i pts[3] = {Vec2i((v[0].x+1.)*width/2,(v[0].y+1.)*height/2),
-			   Vec2i((v[1].x+1.)*width/2,(v[1].y+1.)*height/2),
-			   Vec2i((v[2].x+1.)*width/2,(v[2].y+1.)*height/2)};
-			Vec3f comps  = barycentric(pts,Vec2i(x,y));
-			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
-			float z = (v[0].z)*comps.x + (v[1].z)*comps.y + (v[2].z)*comps.z;
-			if(zbuffer[x][y] < z){
-				zbuffer[x][y] = z;
-		   		image.set(x,y,color);
-			}
-		}
-	}
-}
-
-
 TGAColor get_texture(Vec2i p, Vec3f *tv, Vec3f bary, TGAImage &texture){
 	int tw = texture.get_width();
 	int th = texture.get_height();
@@ -117,7 +84,7 @@ TGAColor get_texture(Vec2i p, Vec3f *tv, Vec3f bary, TGAImage &texture){
 	return texture.get(tx,ty);
 }
 
-void triangle_texture(Vec3f *v, Vec3f *tv, float intensity, int zbuffer[width][height], TGAImage &image, TGAImage &texture) {
+void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f *nv, int zbuffer[width][height], TGAImage &image, TGAImage &texture) {
 
 	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
 	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
@@ -133,7 +100,15 @@ void triangle_texture(Vec3f *v, Vec3f *tv, float intensity, int zbuffer[width][h
 			float z = (v[0].z)*comps.x + (v[1].z)*comps.y + (v[2].z)*comps.z;
 			if(zbuffer[x][y] < (int) z){
 				zbuffer[x][y] = (int) z;
+				Vec3f normal = nv[0]*comps.z + nv[1]*comps.y + nv[2]*comps.x; // normal of (u,v,1-u-v) is weighted sum of vertex normals
+				normal.normalize();
+				float intensity = -1*(normal*light_dir);
+				intensity = std::max(intensity, 0.f);
 				TGAColor color = get_texture(Vec2i(x,y), tv, comps, texture)*intensity;
+				if( (1-std::abs(intensity)) < 0.01) {
+				 	std::cout << intensity << std::endl;  
+					std::cout << "(" << (int) color.r << ", " <<  (int) color.g << ", " << (int) color.b << ", " << (int) color.a << ")\n";
+				}
 				image.set(x,y,color);
 			}
 		}
@@ -204,19 +179,20 @@ void drawfacemesh(const char *modelname, const char *texturename, TGAImage &imag
 		std::vector<int> face = model->face(i);
 		Vec3f pts[3];
 		Vec3f world_coords[3];
-		Vec3f txts[3]; // the three texture coordinates.
+		Vec3f textures[3]; // the three texture coordinates.
+		Vec3f normals[3]; // the three normal vectors.
 		for (int j=0; j<3; j++){
 			Vec3f v = (model->vert(face[j*3]));
 			Matrix Projection = perspective(v);
 			pts[j] = Vec3f(ViewPort * Projection * ModelView * Matrix(v));
-			txts[j] = (model->tvert(face[(j*3)+1]));
+			textures[j] = (model->tvert(face[(j*3)+1]));
+			normals[j] = (model->nvert(face[(j*3)+2]));
 			world_coords[j] = v; // useless extra vector maybe... CHECK if this passes by reference or copy.
 		}	
-		Vec3f light_dir = Vec3f(0,0,-1); // light goes in the -z dir'n
-		Vec3f normal = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]);
+		Vec3f normal = normals[0]*0.33 + normals[1]* 0.33 + normals[2] * 0.33;
 		normal.normalize();
-		float intensity = normal*light_dir;
-		if (intensity > 0)	triangle_texture(pts, txts, intensity, zbuffer, image, texture);
+		float intensity = normal*(light_dir * (-1));
+		if (intensity > 0) triangle_texture(pts, textures, normals, zbuffer, image, texture);
 	}
 
 	delete model;
