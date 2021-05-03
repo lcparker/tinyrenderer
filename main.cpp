@@ -12,12 +12,12 @@ const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green   = TGAColor(0, 255,   0,  255);
 const TGAColor blue   = TGAColor(0, 0,   255,  255);
 Model *model = NULL;
-const int width  = 1000;
-const int height = 1000;
-Vec3f eye(1,1,4);
+const int width  = 800;
+const int height = 800;
+Vec3f eye(3,1,2);
 Vec3f centre(0,0,0);
 Vec3f up(0,1,0);
-Vec3f light_dir = Vec3f(0,0,-1); // light goes in the -z dir'n
+Vec3f light_dir = Vec3f(1,1,1); // light goes in the -z dir'n
 
 void line(Vec2i v0, Vec2i v1, TGAImage &image, TGAColor color) {
 /* Draw a line by coloring the pixels between two points. */
@@ -79,12 +79,12 @@ TGAColor get_texture(Vec2i p, Vec3f *tv, Vec3f bary, TGAImage &texture){
 	Vec2i txts[3] = {Vec2i(tv[0].x*tw,tv[0].y*th),
 	   Vec2i(tv[1].x*tw,tv[1].y*th),
 	   Vec2i(tv[2].x*tw,tv[2].y*th)};
-	int tx = bary.x*txts[1].x + bary.y*txts[2].x + bary.z*txts[0].x;
+	int tx = bary.x*txts[2].x + bary.y*txts[1].x + bary.z*txts[0].x;
 	int ty = bary.x*txts[2].y + bary.y*txts[1].y + bary.z*txts[0].y;
 	return texture.get(tx,ty);
 }
 
-void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f *nv, int zbuffer[width][height], TGAImage &image, TGAImage &texture) {
+void triangle_texture(Vec3f *v, Vec3f *tv, float *nv, int zbuffer[width][height], TGAImage &image, TGAImage &texture) {
 
 	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
 	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
@@ -100,15 +100,9 @@ void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f *nv, int zbuffer[width][height]
 			float z = (v[0].z)*comps.x + (v[1].z)*comps.y + (v[2].z)*comps.z;
 			if(zbuffer[x][y] < (int) z){
 				zbuffer[x][y] = (int) z;
-				Vec3f normal = nv[0]*comps.z + nv[1]*comps.y + nv[2]*comps.x; // normal of (u,v,1-u-v) is weighted sum of vertex normals
-				normal.normalize();
-				float intensity = -1*(normal*light_dir);
+				float intensity = nv[0]*comps.z + nv[1]*comps.y + nv[2]*comps.x; // normal of (u,v,1-u-v) is weighted sum of vertex normals
 				intensity = std::max(intensity, 0.f);
 				TGAColor color = get_texture(Vec2i(x,y), tv, comps, texture)*intensity;
-				if( (1-std::abs(intensity)) < 0.01) {
-				 	std::cout << intensity << std::endl;  
-					std::cout << "(" << (int) color.r << ", " <<  (int) color.g << ", " << (int) color.b << ", " << (int) color.a << ")\n";
-				}
 				image.set(x,y,color);
 			}
 		}
@@ -124,12 +118,11 @@ Matrix view_frame(Vec3f eye, Vec3f centre, Vec3f up){
 	Vec3f y = (z^x).normalize();
 	Matrix Minv  = Matrix::identity(4);
 	Matrix Trans = Matrix::identity(4);
-
 	for(int i = 0; i < 3; i++){
 		Minv[0][i]  = x[i];
 		Minv[1][i]  = y[i];
 		Minv[2][i]  = z[i];
-		Trans[i][3] = -centre[i];
+		Minv[i][3] = -centre[i];
 	}
 
 	return Minv*Trans;
@@ -153,12 +146,12 @@ Matrix perspective(Vec3f v){
 Matrix viewport(int x, int y, int w, int h, int depth){
 
 	Matrix result = Matrix::identity(4);
-	result[0][0] = w/2;
-	result[1][1] = h/2;
-	result[2][2] = depth/2;
-	result[2][3] = depth/2;
-	result[0][3] = x + w/2;
-	result[1][3] = y + h/2;
+	result[0][0] = w/2.;
+	result[1][1] = h/2.;
+	result[2][2] = depth/2.;
+	result[2][3] = depth/2.;
+	result[0][3] = x + w/2.;
+	result[1][3] = y + h/2.;
 
 	return result;
 }
@@ -173,26 +166,25 @@ void drawfacemesh(const char *modelname, const char *texturename, TGAImage &imag
 	int zbuffer[width][height] = {0}; // z-buffer in greyscale
 
 	Matrix ModelView = view_frame(eye, centre, up);
-	Matrix ViewPort = viewport(0, 0, width, height, 255);
+	Matrix ViewPort = viewport(width/8., height/8., width*3/4., height*3/4., 255); // so the head won't take up the whole screen
+
+	light_dir.normalize();
 
 	for(int i=0; i<model->nfaces();i++){
 		std::vector<int> face = model->face(i);
 		Vec3f pts[3];
 		Vec3f world_coords[3];
 		Vec3f textures[3]; // the three texture coordinates.
-		Vec3f normals[3]; // the three normal vectors.
+		float normals[3]; // the three normal vectors.
 		for (int j=0; j<3; j++){
 			Vec3f v = (model->vert(face[j*3]));
 			Matrix Projection = perspective(v);
 			pts[j] = Vec3f(ViewPort * Projection * ModelView * Matrix(v));
 			textures[j] = (model->tvert(face[(j*3)+1]));
-			normals[j] = (model->nvert(face[(j*3)+2]));
+			normals[j] = (model->nvert(face[(j*3)+2]))*light_dir;
 			world_coords[j] = v; // useless extra vector maybe... CHECK if this passes by reference or copy.
 		}	
-		Vec3f normal = normals[0]*0.33 + normals[1]* 0.33 + normals[2] * 0.33;
-		normal.normalize();
-		float intensity = normal*(light_dir * (-1));
-		if (intensity > 0) triangle_texture(pts, textures, normals, zbuffer, image, texture);
+		triangle_texture(pts, textures, normals, zbuffer, image, texture);
 	}
 
 	delete model;

@@ -20,7 +20,7 @@ Model::Model(const char *filename) : verts_(), tverts_(), nverts_(), faces_() {
             for (int i=0;i<3;i++) iss >> v.raw[i];
             verts_.push_back(v);
         } else if (!line.compare(0,3, "vt ")) {
-            iss >> trash >> trash >> trash ;
+            iss >> trash >> trash >> trash;
             Vec3f v;
             for (int i=0;i<3;i++){
 				iss >> v.raw[i];
