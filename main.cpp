@@ -99,9 +99,10 @@ Vec3f get_normal(Vec3f *tv, Vec3f bary, TGAImage &normalmap){
 	return normal.normalize();
 }
 
-void triangle_texture(Vec3f *v, Vec3f *tv, Matrix &ModelView, int zbuffer[width][height], TGAImage &image, TGAImage &texture, TGAImage &normalmap) {
+void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f *dirs, Matrix &ModelView, int zbuffer[width][height], TGAImage &image, TGAImage &texture, TGAImage &normalmap) {
 
 	Matrix ModelViewTrInv = (ModelView.transpose()).inverse();
+	Vec3f Ml = ModelView * Matrix(light_dir);
 
 	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
 	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
@@ -118,9 +119,16 @@ void triangle_texture(Vec3f *v, Vec3f *tv, Matrix &ModelView, int zbuffer[width]
 			if(zbuffer[x][y] < (int) z){
 				zbuffer[x][y] = (int) z;
 				Vec3f normal = ModelViewTrInv * Matrix(get_normal(tv, comps, normalmap));
-				float intensity = std::max(0.f,normal*(ModelView * Matrix(light_dir))); // normal of (u,v,1-u-v) is weighted sum of vertex normals
-				TGAColor color = get_texture(tv, comps, texture)*intensity;
-				image.set(x,y,color);
+				Vec3f dir = (dirs[0]*comps.x + dirs[1]*comps.y + dirs[2]*comps.z).normalize();
+				Vec3f r = (normal * 2. * (normal * Ml) - light_dir).normalize();
+				float diffuse = std::max<float>(0.f, normal*Ml);
+				float specular = std::max<float>(0.f,std::pow(dir*r,10));
+				TGAColor c = get_texture(tv, comps, texture);
+				TGAColor colour;
+				colour.r = std::min<float>(255,5 + c.r*(diffuse + 0.6*specular));
+				colour.g = std::min<float>(255,5 + c.g*(diffuse + 0.6*specular));
+				colour.b = std::min<float>(255,5 + c.b*(diffuse + 0.6*specular));
+				image.set(x,y,colour);
 			}
 		}
 	}
@@ -193,14 +201,17 @@ void drawfacemesh(const char *modelname, const char *texturename, const char *no
 	for(int i=0; i<model->nfaces();i++){
 		std::vector<int> face = model->face(i);
 		Vec3f pts[3];
+		Vec3f dirs[3]; // direction from vertex to camera
 		Vec3f textures[3]; // the three texture coordinates.
 		for (int j=0; j<3; j++){
 			Vec3f v = (model->vert(face[j*3]));
 			Matrix Projection = perspective(v);
 			pts[j] = Vec3f(ViewPort * Projection * ModelView * Matrix(v));
+			dirs[j] = (eye-v).normalize();
+
 			textures[j] = (model->tvert(face[(j*3)+1]));
 		}	
-		triangle_texture(pts, textures, ModelView, zbuffer, image, texture, normalmap);
+		triangle_texture(pts, textures, dirs, ModelView, zbuffer, image, texture, normalmap);
 	}
 
 	delete model;
