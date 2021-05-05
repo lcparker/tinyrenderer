@@ -14,10 +14,12 @@ const TGAColor blue   = TGAColor(0, 0,   255,  255);
 Model *model = NULL;
 const int width  = 800;
 const int height = 800;
-Vec3f eye(3,1,2);
+Vec3f eye(1,1,3);
 Vec3f centre(0,0,0);
 Vec3f up(0,1,0);
 Vec3f light_dir = Vec3f(1,1,1); // light goes in the -z dir'n
+
+// TODO: Get normal vectors from texturemap.
 
 void line(Vec2i v0, Vec2i v1, TGAImage &image, TGAColor color) {
 /* Draw a line by coloring the pixels between two points. */
@@ -73,7 +75,7 @@ Vec3f barycentric(Vec2i *pts, Vec2i P){
 	return Vec3f(u.x/u.z,u.y/u.z,1.-(u.x+u.y)/u.z);
 }
 
-TGAColor get_texture(Vec2i p, Vec3f *tv, Vec3f bary, TGAImage &texture){
+TGAColor get_texture(Vec3f *tv, Vec3f bary, TGAImage &texture){
 	int tw = texture.get_width();
 	int th = texture.get_height();
 	Vec2i txts[3] = {Vec2i(tv[0].x*tw,tv[0].y*th),
@@ -84,7 +86,22 @@ TGAColor get_texture(Vec2i p, Vec3f *tv, Vec3f bary, TGAImage &texture){
 	return texture.get(tx,ty);
 }
 
-void triangle_texture(Vec3f *v, Vec3f *tv, float *nv, int zbuffer[width][height], TGAImage &image, TGAImage &texture) {
+Vec3f get_normal(Vec3f *tv, Vec3f bary, TGAImage &normalmap){
+	int nw = normalmap.get_width();
+	int nh = normalmap.get_height();
+	Vec2i normals[3] = {Vec2i(tv[0].x*nw,tv[0].y*nh),
+	   					Vec2i(tv[1].x*nw,tv[1].y*nh),
+						Vec2i(tv[2].x*nw,tv[2].y*nh)};
+	int nx = bary.x*normals[2].x + bary.y*normals[1].x + bary.z*normals[0].x;
+	int ny = bary.x*normals[2].y + bary.y*normals[1].y + bary.z*normals[0].y;
+	TGAColor cnormal = normalmap.get(nx,ny); // normal encoded as RGB
+	Vec3f normal = Vec3f((cnormal.r-128.)/256.,(cnormal.g-128.)/256.,(cnormal.b-128.)/256.);
+	return normal.normalize();
+}
+
+void triangle_texture(Vec3f *v, Vec3f *tv, Matrix &ModelView, int zbuffer[width][height], TGAImage &image, TGAImage &texture, TGAImage &normalmap) {
+
+	Matrix ModelViewTrInv = (ModelView.transpose()).inverse();
 
 	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
 	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
@@ -100,9 +117,9 @@ void triangle_texture(Vec3f *v, Vec3f *tv, float *nv, int zbuffer[width][height]
 			float z = (v[0].z)*comps.x + (v[1].z)*comps.y + (v[2].z)*comps.z;
 			if(zbuffer[x][y] < (int) z){
 				zbuffer[x][y] = (int) z;
-				float intensity = nv[0]*comps.z + nv[1]*comps.y + nv[2]*comps.x; // normal of (u,v,1-u-v) is weighted sum of vertex normals
-				intensity = std::max(intensity, 0.f);
-				TGAColor color = get_texture(Vec2i(x,y), tv, comps, texture)*intensity;
+				Vec3f normal = ModelViewTrInv * Matrix(get_normal(tv, comps, normalmap));
+				float intensity = std::max(0.f,normal*(ModelView * Matrix(light_dir))); // normal of (u,v,1-u-v) is weighted sum of vertex normals
+				TGAColor color = get_texture(tv, comps, texture)*intensity;
 				image.set(x,y,color);
 			}
 		}
@@ -156,12 +173,15 @@ Matrix viewport(int x, int y, int w, int h, int depth){
 	return result;
 }
 
-void drawfacemesh(const char *modelname, const char *texturename, TGAImage &image){
+void drawfacemesh(const char *modelname, const char *texturename, const char *normalsname, TGAImage &image){
 
 	model = new Model(modelname); // face
 	TGAImage texture;
+	TGAImage normalmap;
     texture.read_tga_file(texturename); // The image containing the texture map
+    normalmap.read_tga_file(normalsname); // The image containing the normals encoded in RGB coords
 	texture.flip_vertically();
+	normalmap.flip_vertically();
 
 	int zbuffer[width][height] = {0}; // z-buffer in greyscale
 
@@ -173,18 +193,14 @@ void drawfacemesh(const char *modelname, const char *texturename, TGAImage &imag
 	for(int i=0; i<model->nfaces();i++){
 		std::vector<int> face = model->face(i);
 		Vec3f pts[3];
-		Vec3f world_coords[3];
 		Vec3f textures[3]; // the three texture coordinates.
-		float normals[3]; // the three normal vectors.
 		for (int j=0; j<3; j++){
 			Vec3f v = (model->vert(face[j*3]));
 			Matrix Projection = perspective(v);
 			pts[j] = Vec3f(ViewPort * Projection * ModelView * Matrix(v));
 			textures[j] = (model->tvert(face[(j*3)+1]));
-			normals[j] = (model->nvert(face[(j*3)+2]))*light_dir;
-			world_coords[j] = v; // useless extra vector maybe... CHECK if this passes by reference or copy.
 		}	
-		triangle_texture(pts, textures, normals, zbuffer, image, texture);
+		triangle_texture(pts, textures, ModelView, zbuffer, image, texture, normalmap);
 	}
 
 	delete model;
@@ -193,10 +209,9 @@ void drawfacemesh(const char *modelname, const char *texturename, TGAImage &imag
 int main(int argc, char** argv) {
 	
 	TGAImage image(width, height, TGAImage::RGB);
-	drawfacemesh("obj/african_head.obj", "obj/african_head_diffuse.tga", image);
+	drawfacemesh("obj/african_head.obj", "obj/african_head_diffuse.tga","obj/african_head_nm.tga", image);
 
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
 	return 0;
 }
-
