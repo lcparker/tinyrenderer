@@ -4,7 +4,14 @@
 #include <vector>
 
 class Matrix;
-
+template <class t> struct Vec2;
+template <class t> struct Vec3;
+template <class t> struct Vec4;
+typedef Vec2<float> Vec2f;
+typedef Vec2<int>   Vec2i;
+typedef Vec3<float> Vec3f;
+typedef Vec4<float> Vec4f;
+typedef Vec3<int>   Vec3i;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <class t> struct Vec2 {
@@ -31,6 +38,7 @@ template <class t> struct Vec3 {
 	Vec3(t _x, t _y, t _z) : x(_x),y(_y),z(_z) {}
 	Vec3(Matrix m);
 	template <class u> Vec3<t>(const Vec3<u> &v);
+	template <class u> Vec3<t>(const Vec4<u> &v);
 	inline Vec3<t> operator ^(const Vec3<t> &v) const { return Vec3<t>(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x); }
 	inline Vec3<t> operator +(const Vec3<t> &v) const { return Vec3<t>(x+v.x, y+v.y, z+v.z); }
 	inline Vec3<t> operator -(const Vec3<t> &v) const { return Vec3<t>(x-v.x, y-v.y, z-v.z); }
@@ -42,10 +50,26 @@ template <class t> struct Vec3 {
 	template <class > friend std::ostream& operator<<(std::ostream& s, Vec3<t>& v);
 };
 
-typedef Vec2<float> Vec2f;
-typedef Vec2<int>   Vec2i;
-typedef Vec3<float> Vec3f;
-typedef Vec3<int>   Vec3i;
+template <class t> struct Vec4 {
+	union {
+		struct {t x, y, z, c;};
+		struct { t ivert, iuv, inorm, w; };
+		t raw[4];
+	};
+	Vec4() : x(0), y(0), z(0), c(1) {}
+	Vec4(t _x, t _y, t _z, t _c) : x(_x),y(_y),z(_z), c(_c) {}
+	Vec4(Matrix m);
+	template <class u> Vec4<t>(const Vec4<u> &v);
+	template <class u> Vec4<t>(const Vec3<u> &v);
+	inline Vec4<t> operator +(const Vec4<t> &v) const { return Vec4<t>(x+v.x, y+v.y, z+v.z, c+v.c); }
+	inline Vec4<t> operator -(const Vec4<t> &v) const { return Vec4<t>(x-v.x, y-v.y, z-v.z, c-v.c); }
+	inline Vec4<t> operator *(float f)          const { return Vec4<t>(x*f, y*f, z*f, c*f); }
+	inline t       operator *(const Vec4<t> &v) const { return x*v.x + y*v.y + z*v.z + c*v.c; }
+	float norm () const { return std::sqrt(x*x+y*y+z*z+c*c); }
+	t operator[](const int i) { return (t) raw[i]; }
+	Vec3<t> & normalize(t l=1) { *this = (*this)*(l/norm()); return *this; }
+	template <class > friend std::ostream& operator<<(std::ostream& s, Vec4<t>& v);
+};
 
 template <class t> std::ostream& operator<<(std::ostream& s, Vec2<t>& v) {
 	s << "(" << v.x << ", " << v.y << ")\n";
@@ -57,6 +81,10 @@ template <class t> std::ostream& operator<<(std::ostream& s, Vec3<t>& v) {
 	return s;
 }
 
+template <class t> std::ostream& operator<<(std::ostream& s, Vec4<t>& v) {
+	s << "(" << v.x << ", " << v.y << ", " << v.z << ", " << v.c <<  ")\n";
+	return s;
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // basically copied from ssloy/tinyrenderer
@@ -67,6 +95,7 @@ class Matrix{
 public:
 	Matrix( int r = 4, int c = 4);
 	Matrix(Vec3f v);
+	Matrix(Vec4f v);
 	int nrows();
 	int ncols();
 	static Matrix identity(int dimensions);

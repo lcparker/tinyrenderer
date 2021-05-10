@@ -17,7 +17,7 @@ const int height = 800;
 Vec3f eye(1,1,3);
 Vec3f centre(0,0,0);
 Vec3f up(0,1,0);
-Vec3f light_dir = Vec3f(1,1,1); // light goes in the -z dir'n
+Vec3f light_dir = Vec3f(0,3,3); // light goes in the -z dir'n
 
 // TODO: Get normal vectors from texturemap.
 
@@ -99,7 +99,7 @@ Vec3f get_normal(Vec3f *tv, Vec3f bary, TGAImage &normalmap){
 	return normal.normalize();
 }
 
-void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f *dirs, Matrix &ModelView, int zbuffer[width][height], TGAImage &image, TGAImage &texture, TGAImage &normalmap) {
+void triangle(Vec3f *v, Vec3f *tv, Vec3f *dirs, Matrix &ModelView,Matrix &Ninv, Matrix &M, int zbuffer[width][height], int sbuffer[width][height], TGAImage &image, TGAImage &texture, TGAImage &normalmap) {
 
 	Matrix ModelViewTrInv = (ModelView.transpose()).inverse();
 	Vec3f Ml = ModelView * Matrix(light_dir);
@@ -115,20 +115,24 @@ void triangle_texture(Vec3f *v, Vec3f *tv, Vec3f *dirs, Matrix &ModelView, int z
 			   				Vec2i(v[2].x,v[2].y)};
 			Vec3f comps  = barycentric(pts,Vec2i(x,y));
 			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
-			float z = (v[0].z)*comps.x + (v[1].z)*comps.y + (v[2].z)*comps.z;
-			if(zbuffer[x][y] < (int) z){
-				zbuffer[x][y] = (int) z;
-				Vec3f normal = ModelViewTrInv * Matrix(get_normal(tv, comps, normalmap));
-				Vec3f dir = (dirs[0]*comps.x + dirs[1]*comps.y + dirs[2]*comps.z).normalize();
-				Vec3f r = (normal * 2. * (normal * Ml) - light_dir).normalize();
-				float diffuse = std::max<float>(0.f, normal*Ml);
-				float specular = std::max<float>(0.f,std::pow(dir*r,10));
-				TGAColor c = get_texture(tv, comps, texture);
-				TGAColor colour;
-				colour.r = std::min<float>(255,5 + c.r*(diffuse + 0.6*specular));
-				colour.g = std::min<float>(255,5 + c.g*(diffuse + 0.6*specular));
-				colour.b = std::min<float>(255,5 + c.b*(diffuse + 0.6*specular));
-				image.set(x,y,colour);
+			Vec3f this_v = v[0]*comps.z + v[1]*comps.y + v[2]*comps.x;
+			if(zbuffer[x][y] < (int) this_v.z){
+				Vec3f langle = M*Ninv*this_v;
+					zbuffer[x][y] = (int) this_v.z;
+					Vec3f normal = Vec3f(ModelViewTrInv * Matrix(get_normal(tv, comps, normalmap))).normalize();
+					Vec3f dir = (dirs[0]*comps.z + dirs[1]*comps.y + dirs[2]*comps.x).normalize();
+					Vec3f r = (normal*2.*(normal*Ml)-light_dir).normalize();
+					float diffuse = std::max<float>(0.f, normal*Ml);
+					//TODO: Get specular from a file
+					float specular = std::max<float>(0.f,std::pow(dir*r,10));
+			        float shadow = .3+.7*(sbuffer[(int)langle.x][(int)langle.y]<(int)langle.z+10); 
+					TGAColor c = get_texture(tv, comps, texture);
+					TGAColor colour;
+					colour.r = std::min<float>(255,5 + c.r*shadow*(diffuse + 0.6*specular));
+					colour.g = std::min<float>(255,5 + c.g*shadow*(diffuse + 0.6*specular));
+					colour.b = std::min<float>(255,5 + c.b*shadow*(diffuse + 0.6*specular));
+
+					image.set(x,y,colour);
 			}
 		}
 	}
@@ -153,17 +157,13 @@ Matrix view_frame(Vec3f eye, Vec3f centre, Vec3f up){
 	return Minv*Trans;
 }
 
-Matrix perspective(Vec3f v){
+Matrix perspective(float c){
 	/* generate the perspective-view distortion matrix for v */
 
 	Matrix result = Matrix::identity(4);	
-	Vec3f dist = eye-centre;
-	float c = dist.norm();
-	float camscale = 1./(1.-v.z/c);
+	float camscale = -1./c;
 
-	result[0][0] = camscale;
-	result[1][1] = camscale;
-	result[2][2] = camscale;
+	result[3][2] = camscale;
 
 	return result;
 }
@@ -181,6 +181,32 @@ Matrix viewport(int x, int y, int w, int h, int depth){
 	return result;
 }
 
+void shadow_buffer(Vec3f *v, int sb[width][height], TGAImage &zbuf){
+	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
+	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
+
+	// don't try to draw things that will be outside of the camera view
+	for (int x = ll.x; x<=ur.x && x < width;x++){
+		for (int y = ll.y; y<=ur.y && y < height;y++){
+			Vec2i pts[3] = {Vec2i(v[0].x,v[0].y),
+			   				Vec2i(v[1].x,v[1].y),
+			   				Vec2i(v[2].x,v[2].y)};
+			Vec3f comps  = barycentric(pts,Vec2i(x,y));
+			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
+			float z = (v[0].z)*comps.z + (v[1].z)*comps.y + (v[2].z)*comps.x;
+			if(sb[x][y] < (int) z){
+				sb[x][y] = (int) z;
+				TGAColor c;
+				c.r = std::min<float>(255,(int)z);
+				c.g = std::min<float>(255,(int)z);
+				c.b = std::min<float>(255,(int)z);
+				zbuf.set(x,y,c);
+			}
+		}
+	}
+}
+
+
 void drawfacemesh(const char *modelname, const char *texturename, const char *normalsname, TGAImage &image){
 
 	model = new Model(modelname); // face
@@ -191,11 +217,34 @@ void drawfacemesh(const char *modelname, const char *texturename, const char *no
 	texture.flip_vertically();
 	normalmap.flip_vertically();
 
+	int shadowbuffer[width][height] = {0};
+	TGAImage zbuf(width, height, TGAImage::RGB);
+
+	Matrix ModelView = view_frame(light_dir, centre, up);
+	Matrix ViewPort = viewport(width/8., height/8., width*3/4., height*3/4., 255); // so the head won't take up the whole screen
+	Matrix Projection = perspective((light_dir-centre).norm());
+	Matrix M = ViewPort * Projection * ModelView;
+	
+	for(int i=0; i<model->nfaces();i++){
+		std::vector<int> face = model->face(i);
+		Vec3f pts[3];
+		for (int j=0; j<3; j++){
+			Vec3f v = (model->vert(face[j*3]));
+			Vec4f v4(v);
+			pts[j] = Vec3f(M * Matrix(v4));
+		}	
+		shadow_buffer(pts, shadowbuffer, zbuf);
+	}
+	zbuf.flip_vertically();
+	zbuf.write_tga_file("buffer.tga");
+
 	int zbuffer[width][height] = {0}; // z-buffer in greyscale
 
-	Matrix ModelView = view_frame(eye, centre, up);
-	Matrix ViewPort = viewport(width/8., height/8., width*3/4., height*3/4., 255); // so the head won't take up the whole screen
+	ModelView = view_frame(eye, centre, up);
+	ViewPort = viewport(width/8., height/8., width*3/4., height*3/4., 255); // so the head won't take up the whole screen
+	Projection = perspective((eye-centre).norm());
 
+	Matrix Ninv = (ViewPort*Projection*ModelView).inverse();
 	light_dir.normalize();
 
 	for(int i=0; i<model->nfaces();i++){
@@ -205,13 +254,12 @@ void drawfacemesh(const char *modelname, const char *texturename, const char *no
 		Vec3f textures[3]; // the three texture coordinates.
 		for (int j=0; j<3; j++){
 			Vec3f v = (model->vert(face[j*3]));
-			Matrix Projection = perspective(v);
-			pts[j] = Vec3f(ViewPort * Projection * ModelView * Matrix(v));
-			dirs[j] = (eye-v).normalize();
-
+			Vec4f v4(v);
+			pts[j] = Vec3f(ViewPort * Projection * ModelView * Matrix(v4));
+			dirs[j] = eye-v;
 			textures[j] = (model->tvert(face[(j*3)+1]));
 		}	
-		triangle_texture(pts, textures, dirs, ModelView, zbuffer, image, texture, normalmap);
+		triangle(pts, textures, dirs, ModelView, Ninv, M, zbuffer, shadowbuffer, image, texture, normalmap);
 	}
 
 	delete model;
@@ -220,7 +268,9 @@ void drawfacemesh(const char *modelname, const char *texturename, const char *no
 int main(int argc, char** argv) {
 	
 	TGAImage image(width, height, TGAImage::RGB);
-	drawfacemesh("obj/african_head.obj", "obj/african_head_diffuse.tga","obj/african_head_nm.tga", image);
+	drawfacemesh("obj/african_head.obj",
+		   		 "obj/african_head_diffuse.tga",
+				 "obj/african_head_nm.tga", image);
 
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
