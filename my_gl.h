@@ -25,10 +25,10 @@ void fill_shadow_buffer(Vec3f *v, float *sb, TGAImage &image);
 struct Shader{
 	virtual ~Shader() {};
 	virtual Vec3f vertex(int face, int vert) = 0;
-	virtual bool fragment(Vec3f bary, TGAColor &c, Matrix &MNinv,TGAImage &image, TGAImage &texture, TGAImage &normalmap) = 0;
+	virtual bool fragment(Vec3f bary, TGAColor &c, Matrix &MNinv,TGAImage &image) = 0;
 };
 
 
-void triangle(Vec3f v[3], Shader &shader, Matrix& M, float *zbuffer, float *sbuffer, TGAImage &image, TGAImage &texture, TGAImage &normalmap);
+void triangle(Vec3f v[3], Shader &shader, Matrix &M, float *zbuffer, float *sbuffer, TGAImage &image);
 
 #endif

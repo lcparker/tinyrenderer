@@ -90,7 +90,7 @@ float max_elevation_angle(float *z, Vec2f pt, Vec2f dir, TGAImage &image){
 	return std::atan(max_slope);
 }
 
-void triangle(Vec3f v[3], Shader &shader, Matrix & M, float *zbuffer, float *sbuffer, TGAImage &image, TGAImage &texture, TGAImage &normalmap) {
+void triangle(Vec3f v[3], Shader &shader, Matrix & , float *zbuffer, float *sbuffer, TGAImage &image) {
 /* Rasterise all appropriate points inside a triangle specified by points v[i].
  * 
  * TODO: Clean and update.
@@ -112,7 +112,7 @@ void triangle(Vec3f v[3], Shader &shader, Matrix & M, float *zbuffer, float *sbu
 			Vec3f this_v = v[0]*comps[0] + v[1]*comps[1] + v[2]*comps[2];
 			if(zbuffer[x*w+y] <= this_v.z){
 				TGAColor c;
-				if(shader.fragment(comps,c,M,image,texture,normalmap)){
+				if(shader.fragment(comps,c,M,image)){
 					image.set(x,y,c);
 				}
 			}

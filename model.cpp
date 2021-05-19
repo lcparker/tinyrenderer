@@ -5,9 +5,9 @@
 #include <vector>
 #include "model.h"
 
-Model::Model(const char *filename) : verts_(), tverts_(), nverts_(), faces_() {
+Model::Model(std::string const& filename) : verts_(), tverts_(), nverts_(), faces_(), textures(), normals() {
     std::ifstream in;
-    in.open (filename, std::ifstream::in);
+    in.open ((filename+".obj").c_str(), std::ifstream::in);
     if (in.fail()) return;
     std::string line;
     while (!in.eof()) {
@@ -49,7 +49,11 @@ Model::Model(const char *filename) : verts_(), tverts_(), nverts_(), faces_() {
             faces_.push_back(f);
 		}
     }
-    std::cerr << "# v# " << verts_.size() << "# vt " << tverts_.size() << " f# "  << faces_.size() << std::endl;
+    std::cerr << "# v# " << verts_.size() << " vt# " << tverts_.size() << " f# "  << faces_.size() << std::endl;
+	textures.read_tga_file(filename + "_diffuse.tga");
+	normals.read_tga_file(filename + "_nm.tga");
+	textures.flip_vertically();
+	normals.flip_vertically();
 }
 
 Model::~Model() {
@@ -71,8 +75,16 @@ Vec3f Model::vert(int i) { // get ith vertex
     return verts_[i];
 }
 
+Vec3f Model::vert(int f, int v) { // get ith vertex
+    return verts_[faces_[f][v*3]];
+}
+
 Vec3f Model::tvert(int i) { // get ith texture vertex
     return tverts_[i];
+}
+
+Vec3f Model::tvert(int f,int v) { // get ith texture vertex
+    return tverts_[faces_[f][v*3+1]];
 }
 
 Vec3f Model::nvert(int i) { // get ith normal
