@@ -26,6 +26,7 @@ template <class t> struct Vec2 {
 	inline Vec2<t> operator -(const Vec2<t> &V) const { return Vec2<t>(u-V.u, v-V.v); }
 	inline Vec2<t> operator *(float f)          const { return Vec2<t>(u*f, v*f); }
 	float norm () const{ return std::sqrt(u*u+v*v); }
+	t operator[](const int i) { return (t) raw[i]; }
 	template <class > friend std::ostream& operator<<(std::ostream& s, Vec2<t>& v);
 };
 
@@ -37,11 +38,12 @@ template <class t> struct Vec3 {
 	};
 	Vec3() : x(0), y(0), z(0) {}
 	Vec3(t _x, t _y, t _z) : x(_x),y(_y),z(_z) {}
-	Vec3(Matrix m);
+	Vec3(const Matrix m);
 	template <class u> Vec3<t>(const Vec3<u> &v);
 	template <class u> Vec3<t>(const Vec4<u> &v);
 	inline Vec3<t> operator ^(const Vec3<t> &v) const { return Vec3<t>(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x); }
 	inline Vec3<t> operator +(const Vec3<t> &v) const { return Vec3<t>(x+v.x, y+v.y, z+v.z); }
+	inline Vec3<t> operator +=(const Vec3<t> &v) const { return *this+v; }
 	inline Vec3<t> operator -(const Vec3<t> &v) const { return Vec3<t>(x-v.x, y-v.y, z-v.z); }
 	inline Vec3<t> operator *(float f)          const { return Vec3<t>(x*f, y*f, z*f); }
 	inline t       operator *(const Vec3<t> &v) const { return x*v.x + y*v.y + z*v.z; }
@@ -88,8 +90,6 @@ template <class t> std::ostream& operator<<(std::ostream& s, Vec4<t>& v) {
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// basically copied from ssloy/tinyrenderer
-
 class Matrix{
 	std::vector<std::vector<float>> m;
 	int rows, cols;
@@ -104,6 +104,8 @@ public:
 	Matrix operator*(const Matrix& a);
 	Matrix transpose();
 	Matrix inverse();
+	// TODO: Make it so that this only gets computed once, not every time the shader is run.
+	inline Matrix inverse_transpose() {return transpose().inverse(); }
 	friend std::ostream& operator<<(std::ostream& s, Matrix& m);
 };
 

@@ -57,12 +57,21 @@ struct TGAColor {
 		}
 		return *this;
 	}
+
+	unsigned char operator [](const int i) {
+		return raw[i];
+	}
 	
+	TGAColor operator +(const float i) {
+		// TODO: try casting as unsigned char, less type conversions
+		return TGAColor(std::min(255,int(r+i)),std::min(255,int(g+i)),std::min(255,int(b+i)),bytespp);
+	}
+
 	TGAColor & operator *(const float i) {
 		// not sure what val does, left it alone, might cause ERROR
-		b*=i;
-		g*=i;
-		r*=i;
+		b=std::min<float>(255,b*i);
+		g=std::min<float>(255,g*i);
+		r=std::min<float>(255,r*i);
 		return *this;
 	}
 };
