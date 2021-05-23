@@ -7,19 +7,22 @@
 #include "geometry.h"
 #include "model.h"
 #include "my_gl.h"
+
 /* TODO list:
  * 	- performance improvements
- * 	- SIMD, other code optimisations. Profiling
- * 	- access image, normals, textures from one TGAImage instance
+ * 	- SIMD, OpenMP pragma
+ * 	- remove duplicate methods (fill_shadow_buffer, triangle_blank)
  */
 
 Model *model = NULL;
 
 // WIDTH AND HEIGHT OF THE IMAGE BEING DRAWN
-extern const int width  = 1000;
-extern const int height = 1000;
+const int width  = 1000;
+const int height = 1000;
 
-float zbuffer[width*height] {std::numeric_limits<float>::min()}; // Might need to change this to -max if there's an error.
+// Depth buffer for camera and light reference frame - for hidden face removal
+// and hard shadows, respectively.
+float zbuffer[width*height] 	  {std::numeric_limits<float>::min()}; 
 float shadow_buffer[width*height] {std::numeric_limits<float>::min()};
 
 // POSITIONS: ORIGIN, CAMERA, CAMERA ORIENTATION, INCOMING LIGHT DIRECTION
@@ -28,6 +31,10 @@ const Vec3f eye(1,0,3);
 const Vec3f up(0,1,0);
 Vec3f light_dir = Vec3f(1,1,1);
 
+// These messy variables speed up matrix multiplication in the core loop by quite a bit
+// TODO see if it's quicker to pass by reference a couple times (it may be, depending on if these global vars are stored in memory
+Matrix Minvtr; 
+Matrix N;
 
 struct Phong : public Shader {
 	Vec3f verts[3];
@@ -40,18 +47,17 @@ struct Phong : public Shader {
 		verts[v] = vert;
 		dirs[v]  = eye-vert;
 		vert_textures[v] = model->tvert(f,v);
-		return Vec3f(ViewPort * Projection * ModelView * Vec4f(vert)); // Make this more elegant
+		return Vec3f(N * Vec4f(vert)); // Make this more elegant
 	}
 
-	bool fragment(Vec3f bary, TGAColor &c, Matrix &M, TGAImage &image){
+	void fragment(Vec3f bary, TGAColor &c, Matrix &M, TGAImage &image){
 		/* Interpolate the vertices according to the given barycentric
-		 * coodinates, setting the correct colour to be drawn at that pixel.
-		 * Returns false if vertex should not be drawn. */
+		 * coodinates, setting the correct colour to be drawn at that pixel. */
 		Vec3f v    = verts[0]*bary[0]+verts[1]*bary[1]+verts[2]*bary[2];
-		Vec3f pt_c = ViewPort * Projection * ModelView * Vec4f(v);
+		Vec3f pt_c = N * Vec4f(v);
 		Vec3i pt_l = Vec3f(M*Vec4f(v)); // transform to light ray frame
 
-		Vec3f n   = ModelView.inverse_transpose()*get_normal(vert_textures, bary, model->normals);
+		Vec3f n   = Minvtr*get_normal(vert_textures, bary, model->normals);
 		Vec3f dir = (dirs[0]*bary[0] + dirs[1]*bary[1] + dirs[2]*bary[2]).normalize();
 		Vec3f l   = ModelView*light_dir; 
 	  	n.normalize();
@@ -71,7 +77,6 @@ struct Phong : public Shader {
 		occlusion /= (M_PI/2)*8;
 
 		c = get_texture(vert_textures, bary, model->textures)*shadow*occlusion*(diffuse+0.6*specular)+5;
-		return true;
 	}
 };
 
@@ -100,6 +105,9 @@ int main(int argc, char** argv) {
 	ModelView = view_frame(eye, centre, up);
 	Projection = perspective((eye-centre).norm());
 	
+	Minvtr = ModelView.inverse_transpose();
+	N = ViewPort * Projection * ModelView;
+
 	// Preset the z-buffer for ambient occlusion
 	for(int i=0; i<model->nfaces();i++){
 		std::vector<int> face = model->face(i);

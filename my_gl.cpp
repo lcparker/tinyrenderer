@@ -1,13 +1,14 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+//#include <omp.h>
 #include "my_gl.h"
 
 Matrix ModelView;
 Matrix ViewPort;
 Matrix Projection;
 
-Vec3f barycentric(Vec2i *pts, Vec2i P){
+Vec3f barycentric(Vec2f *pts, Vec2f P){
 /* Finds the barycentric coordinates of a point P in a triangle with points
  * pts[i]. 
  * INPUT:
@@ -90,31 +91,33 @@ float max_elevation_angle(float *z, Vec2f pt, Vec2f dir, TGAImage &image){
 	return std::atan(max_slope);
 }
 
-void triangle(Vec3f v[3], Shader &shader, Matrix & , float *zbuffer, float *sbuffer, TGAImage &image) {
+void triangle(Vec3f v[3], Shader &shader, Matrix &world_to_light , float *zbuffer, float *sbuffer, TGAImage &image) {
 /* Rasterise all appropriate points inside a triangle specified by points v[i].
  * 
  * TODO: Clean and update.
  */
 	
-	Vec2f ur = Vec2f(std::max({v[0][0],v[1][0],v[2][0]}),std::max({v[0][1],v[1][1],v[2][1]})); //upper right corner of bouding box
-	Vec2f ll = Vec2f(std::min({v[0][0],v[1][0],v[2][0]}),std::min({v[0][1],v[1][1],v[2][1]})); //lower left corner
+	// Upper right and lower left corners of bounding box
+	Vec2f ur = Vec2f(std::max({v[0][0],v[1][0],v[2][0]}),
+					 std::max({v[0][1],v[1][1],v[2][1]})); 
+	Vec2f ll = Vec2f(std::min({v[0][0],v[1][0],v[2][0]}),
+					 std::min({v[0][1],v[1][1],v[2][1]})); 
 
+	Vec2f pts[3] = {Vec2f(v[0][0],v[0][1]),Vec2f(v[1][0],v[1][1]),
+					Vec2f(v[2][0],v[2][1])};
 	// don't try to draw things that will be outside of the camera view
-	int w = image.get_width();
-	int h = image.get_height(); // TODO delete/refactor, unused.
-	for (int x = ll.x; x<=ur.x && x < image.get_width();x++){
-		for (int y = ll.y; y<=ur.y && y < image.get_height();y++){
-			Vec2i pts[3] = {Vec2i(v[0][0],v[0][1]),
-			   				Vec2i(v[1][0],v[1][1]),
-			   				Vec2i(v[2][0],v[2][1])};
-			Vec3f comps  = barycentric(pts,Vec2i(x,y));
-			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
-			Vec3f this_v = v[0]*comps[0] + v[1]*comps[1] + v[2]*comps[2];
-			if(zbuffer[x*w+y] <= this_v.z){
+	int xmax = std::min<int>(ur.x,image.get_width());
+	int ymax = std::min<int>(ur.y,image.get_height());
+//#pragma omp parallel for collapse(2)
+	for (int x = ll.x; x<=xmax;x++){
+		for (int y = ll.y; y<=ymax;y++){
+			Vec3f bary  = barycentric(pts,Vec2f(x,y));
+			if(bary.x < 0 || bary.y < 0 || bary.z < 0) continue;
+			Vec3f this_v = v[0]*bary[0] + v[1]*bary[1] + v[2]*bary[2];
+			if(zbuffer[x*image.get_width()+y] <= this_v.z){
 				TGAColor c;
-				if(shader.fragment(comps,c,M,image)){
-					image.set(x,y,c);
-				}
+				shader.fragment(bary,c,world_to_light,image);
+				image.set(x,y,c);
 			}
 		}
 	}
@@ -129,19 +132,18 @@ void triangle_blank(Vec3f *v,float *zbuffer, TGAImage &image) {
 
 	// Upper right and lower left corners of the bounding box for triangle
 	Vec2f ur = Vec2f(std::max({v[0][0],v[1][0],v[2][0]}),
-			std::max({v[0][1],v[1][1],v[2][1]}));
-	Vec2f ll = Vec2f(std::min({v[0][0],v[1][0],
-				v[2][0]}),std::min({v[0][1],v[1][1],v[2][1]})); 
+					 std::max({v[0][1],v[1][1],v[2][1]}));
+	Vec2f ll = Vec2f(std::min({v[0][0],v[1][0],v[2][0]}),
+					 std::min({v[0][1],v[1][1],v[2][1]})); 
 
+	Vec2f pts[3] = {Vec2f(v[0][0],v[0][1]),Vec2f(v[1][0],v[1][1]),
+	   				Vec2f(v[2][0],v[2][1])};
 	int w = image.get_width();
 	for (int x = ll.x; x<=ur.x && x < image.get_width();x++){
 		for (int y = ll.y; y<=ur.y && y < image.get_height();y++){
-			Vec2i pts[3] = {Vec2i(v[0][0],v[0][1]),
-			   				Vec2i(v[1][0],v[1][1]),
-			   				Vec2i(v[2][0],v[2][1])};
-			Vec3f comps  = barycentric(pts,Vec2i(x,y));
-			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
-			float z= v[0][2]*comps[0] + v[1][2]*comps[1] + v[2][2]*comps[2];
+			Vec3f bary  = barycentric(pts,Vec2f(x,y));
+			if(bary.x < 0 || bary.y < 0 || bary.z < 0) continue;
+			float z= v[0][2]*bary[0] + v[1][2]*bary[1] + v[2][2]*bary[2];
 			if(zbuffer[x*w+y] < z){
 				zbuffer[x*w+y] = z;
 				//image.set(x,y,TGAColor(z,z,z,1));
@@ -194,20 +196,19 @@ Matrix viewport(int x, int y, int w, int h, int depth){
 }
 
 void fill_shadow_buffer(Vec3f *v, float *sb, TGAImage &buffer){
-	Vec2f ur = Vec2f(std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y})); //upper right corner of bouding box
-	Vec2f ll = Vec2f(std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y})); //lower left corner
+	Vec2f ur = Vec2f(std::max({v[0][0],v[1][0],v[2][0]}),std::max({v[0][1],v[1][1],v[2][1]})); //upper right corner of bouding box
+	Vec2f ll = Vec2f(std::min({v[0][0],v[1][0],v[2][0]}),std::min({v[0][1],v[1][1],v[2][1]})); //lower left corner
+	Vec2f pts[3] = {Vec2f(v[0][0],v[0][1]),Vec2f(v[1][0],v[1][1]),
+					Vec2f(v[2][0],v[2][1])};
 
 	// don't try to draw things that will be outside of the camera view
 	int w = buffer.get_width();
 	int h = buffer.get_height();
 	for (int x = ll.x; x<=ur.x && x < w;x++){
 		for (int y = ll.y; y<=ur.y && y < h;y++){
-			Vec2i pts[3] = {Vec2i(v[0].x,v[0].y),
-			   				Vec2i(v[1].x,v[1].y),
-			   				Vec2i(v[2].x,v[2].y)};
-			Vec3f comps  = barycentric(pts,Vec2i(x,y));
-			if(comps.x < 0 || comps.y < 0 || comps.z < 0) continue;
-			float z = (v[0].z)*comps[0] + (v[1].z)*comps[1] + (v[2].z)*comps[2];
+			Vec3f bary  = barycentric(pts,Vec2f(x,y));
+			if(bary.x < 0 || bary.y < 0 || bary.z < 0) continue;
+			float z = v[0][2]*bary[0] + v[1][2]*bary[1] + v[2][2]*bary[2];
 			if(sb[x*w+y] < z){
 				sb[x*w+y] = z;
 				buffer.set(x,y,TGAColor(z,z,z,1));
