@@ -83,7 +83,6 @@ struct Phong : public Shader {
 int main(int argc, char** argv) {
 	
 	TGAImage image(width, height, TGAImage::RGB);
-	TGAImage sbuffer(width,height, TGAImage::GRAYSCALE);
 
 	std::string const& modelname = "obj/african_head";
 	model = new Model(modelname);
@@ -99,7 +98,7 @@ int main(int argc, char** argv) {
 	for(int i=0; i<model->nfaces();i++){
 		std::vector<int> face = model->face(i);
 		for (int j=0; j<3; j++) pts[j] = bs.vertex(i,j);
-		fill_shadow_buffer(pts, shadow_buffer, sbuffer);
+		fill_shadow_buffer(pts, shadow_buffer, image);
 	}
 
 	ModelView = view_frame(eye, centre, up);
@@ -109,13 +108,13 @@ int main(int argc, char** argv) {
 	N = ViewPort * Projection * ModelView;
 
 	// Preset the z-buffer for ambient occlusion
+	std::vector<int> face;
 	for(int i=0; i<model->nfaces();i++){
-		std::vector<int> face = model->face(i);
-		Vec3f pts[3];
+ 		face = model->face(i);
 		for (int j=0; j<3; j++){
 			pts[j] = bs.vertex(i,j);
 		}	
-		triangle_blank(pts, zbuffer, sbuffer);
+		triangle_blank(pts, zbuffer, image);
 	}
 
 	light_dir.normalize();
@@ -130,8 +129,6 @@ int main(int argc, char** argv) {
 
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
-	sbuffer.flip_vertically();
-	sbuffer.write_tga_file("buffer.tga");
 	return 0;
 }
 

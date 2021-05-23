@@ -2,6 +2,7 @@
 #define __GEOMETRY_H__
 #include <cmath>
 #include <vector>
+#include <immintrin.h>
 
 class Matrix;
 template <class t> struct Vec2;
@@ -18,7 +19,7 @@ template <class t> struct Vec2 {
 	union {
 		struct {t u, v;};
 		struct {t x, y;};
-		t raw[2];
+		t raw[4];
 	};
 	Vec2() : u(0), v(0) {}
 	Vec2(t _u, t _v) : u(_u),v(_v) {}
@@ -34,7 +35,8 @@ template <class t> struct Vec3 {
 	union {
 		struct {t x, y, z;};
 		struct { t ivert, iuv, inorm; };
-		t raw[3];
+		t raw[4];
+		__m128 raw_intrinsic;
 	};
 	Vec3() : x(0), y(0), z(0) {}
 	Vec3(t _x, t _y, t _z) : x(_x),y(_y),z(_z) {}
@@ -46,11 +48,13 @@ template <class t> struct Vec3 {
 	inline Vec3<t> operator -(const Vec3<t> &v) const { return Vec3<t>(x-v.x, y-v.y, z-v.z); }
 	inline Vec3<t> operator *(float f)          const { return Vec3<t>(x*f, y*f, z*f); }
 	inline Vec3<t> operator ^(const Vec3<t> &v) const {
-
+		
 	   	return Vec3<t>(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x); 
 	}
 	inline t       operator *(const Vec3<t> &v) const {
-	   	return x*v.x + y*v.y + z*v.z; 
+		__m128 dp = _mm_dp_ps(raw_intrinsic,v.raw_intrinsic,0x71);
+		return (float) _mm_cvtss_f32(dp);	
+	   	//return x*v.x + y*v.y + z*v.z; 
 	}
 	float norm () const { return std::sqrt(x*x+y*y+z*z); }
 	inline t operator[](const int i) { return raw[i]; }
@@ -63,6 +67,7 @@ template <class t> struct Vec4 {
 		struct {t x, y, z, c;};
 		struct { t ivert, iuv, inorm, w; };
 		t raw[4];
+		__m128 raw_intrinsic;
 	};
 	Vec4() : x(0), y(0), z(0), c(1) {}
 	Vec4(t _x, t _y, t _z, t _c) : x(_x),y(_y),z(_z), c(_c) {}

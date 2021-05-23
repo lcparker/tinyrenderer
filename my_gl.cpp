@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-//#include <omp.h>
+#include <omp.h>
 #include "my_gl.h"
 
 Matrix ModelView;
@@ -108,7 +108,7 @@ void triangle(Vec3f v[3], Shader &shader, Matrix &world_to_light , float *zbuffe
 	// don't try to draw things that will be outside of the camera view
 	int xmax = std::min<int>(ur.x,image.get_width());
 	int ymax = std::min<int>(ur.y,image.get_height());
-//#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2)
 	for (int x = ll.x; x<=xmax;x++){
 		for (int y = ll.y; y<=ymax;y++){
 			Vec3f bary  = barycentric(pts,Vec2f(x,y));
@@ -195,15 +195,15 @@ Matrix viewport(int x, int y, int w, int h, int depth){
 	return result;
 }
 
-void fill_shadow_buffer(Vec3f *v, float *sb, TGAImage &buffer){
+void fill_shadow_buffer(Vec3f *v, float *sb, TGAImage &image){
 	Vec2f ur = Vec2f(std::max({v[0][0],v[1][0],v[2][0]}),std::max({v[0][1],v[1][1],v[2][1]})); //upper right corner of bouding box
 	Vec2f ll = Vec2f(std::min({v[0][0],v[1][0],v[2][0]}),std::min({v[0][1],v[1][1],v[2][1]})); //lower left corner
 	Vec2f pts[3] = {Vec2f(v[0][0],v[0][1]),Vec2f(v[1][0],v[1][1]),
 					Vec2f(v[2][0],v[2][1])};
 
 	// don't try to draw things that will be outside of the camera view
-	int w = buffer.get_width();
-	int h = buffer.get_height();
+	int w = image.get_width();
+	int h = image.get_height();
 	for (int x = ll.x; x<=ur.x && x < w;x++){
 		for (int y = ll.y; y<=ur.y && y < h;y++){
 			Vec3f bary  = barycentric(pts,Vec2f(x,y));
@@ -211,7 +211,6 @@ void fill_shadow_buffer(Vec3f *v, float *sb, TGAImage &buffer){
 			float z = v[0][2]*bary[0] + v[1][2]*bary[1] + v[2][2]*bary[2];
 			if(sb[x*w+y] < z){
 				sb[x*w+y] = z;
-				buffer.set(x,y,TGAColor(z,z,z,1));
 			}
 		}
 	}

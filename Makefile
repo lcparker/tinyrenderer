@@ -1,7 +1,7 @@
 SYSCONF_LINK = g++
 CPPFLAGS     = -std=c++17
-LDFLAGS      =
-LIBS         = -lm -fopenmp
+LDFLAGS      = 
+LIBS         = -lm 
 
 DESTDIR = ./
 TARGET  = main

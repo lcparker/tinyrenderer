@@ -59,9 +59,8 @@ Matrix Matrix::operator*(const Matrix& a) {
     assert(cols == a.rows);
     Matrix result(rows, a.cols);
     for (int i=0; i<rows; i++) {
-        for (int j=0; j<a.cols; j++) {
-            result.m[i][j] = 0.f;
-            for (int k=0; k<cols; k++) {
+        for (int k=0; k<cols; k++) {
+            for (int j=0; j<a.cols; j++) {
                 result.m[i][j] += m[i][k]*a.m[k][j];
             }
         }
